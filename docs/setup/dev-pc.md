@@ -32,7 +32,7 @@ sudo apt install -y build-essential cmake ninja-build git python3 \
 
 ## 2. Verible (SystemVerilog lint and format)
 
-Verible is not in Ubuntu's packages. Download the latest Linux x86_64 release from <https://github.com/chipsalliance/verible/releases>, extract it, and put its `bin/` on your `PATH`:
+Verible is not in Ubuntu's packages. CI pins release **`v0.0-4296-g0f262651`** (see `VERIBLE_TAG` in `.github/workflows/ci.yml`); use the same one, so formatting agrees with CI. Download `verible-v0.0-4296-g0f262651-linux-static-x86_64.tar.gz` from <https://github.com/chipsalliance/verible/releases/tag/v0.0-4296-g0f262651>, extract it, and put its `bin/` on your `PATH`:
 
 ```bash
 verible-verilog-lint --version

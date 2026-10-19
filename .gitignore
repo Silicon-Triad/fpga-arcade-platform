@@ -109,3 +109,6 @@ transcript
 *.vcd
 *.fst
 !hw/sim/logs/*.log
+
+# Our own Makefiles are source (the C++ template above ignores CMake-generated ones)
+!hw/sim/Makefile
