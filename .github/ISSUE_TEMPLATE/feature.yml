@@ -1,0 +1,20 @@
+name: Feature or test task
+description: Implement or verify SRS requirements
+labels: ["type:feature"]
+body:
+  - type: input
+    id: srs
+    attributes: {label: SRS IDs covered, description: "e.g. SR-GAM-03, PR-02"}
+    validations: {required: true}
+  - type: dropdown
+    id: owner
+    attributes: {label: Owner, options: [Muhammad, Mujtaba, Huzaifa]}
+    validations: {required: true}
+  - type: textarea
+    id: what
+    attributes: {label: What to do}
+    validations: {required: true}
+  - type: textarea
+    id: acceptance
+    attributes: {label: Acceptance check, description: "How we know it is done; use the SRS verification method"}
+    validations: {required: true}

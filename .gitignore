@@ -83,3 +83,29 @@ simulation/
 *.fst
 obj_dir/
 .vscode/
+
+# Build trees
+build/
+CMakeUserPresets.json
+
+# Quartus / Platform Designer generated output (summaries are copied to hw/reports/)
+db/
+incremental_db/
+output_files/
+qdb/
+tmp-clearbox/
+*.qws
+*.rpt
+*.summary
+!hw/reports/*.summary
+hw/ip/**/synthesis/
+hw/ip/**/simulation/
+
+# Simulation
+obj_dir/
+work/
+transcript
+*.wlf
+*.vcd
+*.fst
+!hw/sim/logs/*.log
