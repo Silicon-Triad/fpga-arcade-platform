@@ -66,3 +66,20 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# Quartus
+build/
+db/
+incremental_db/
+output_files/
+simulation/
+*.qws
+*.rpt
+*.summary
+*.smsg
+*.sof
+*.rbf
+*.vcd
+*.fst
+obj_dir/
+.vscode/
