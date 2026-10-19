@@ -17,6 +17,7 @@
 | `needs-board` | Cannot be finished without the DE1-SoC |
 | `agent-ok` | Scoped tightly enough to hand to an AI agent |
 | `blocked` | Waiting on something else |
+| `hw-milestone` | PR closes M2 or M4; CI then requires Quartus reports in `hw/reports/` |
 
 Milestones: M0 Foundation (Wed 21 Oct), M1 PC playable and M2 Video on board (Sun 1 Nov), M3 Hardware integration and M4 Sound (Sun 8 Nov), M5 Verification and release 1.0 (Sun 15 Nov 2026).
 
@@ -33,6 +34,6 @@ These settings put AGENTS.md section 7 into force. Set them under **Settings**:
 - Require review from **Code Owners**, so frozen-interface paths need all three (`.github/CODEOWNERS`).
 - Dismiss stale approvals when new commits are pushed.
 - Require conversation resolution before merging.
-- Require status checks to pass: add the CI jobs once issue #2 has merged the workflow.
+- Require status checks to pass: `sw (build, tests, coverage, cross build, lint)`, `hw (Verilator and Verible lint, Verilator testbenches)` and `checks (QuestaSim logs, Quartus reports)`. They appear in the list after CI has run once.
 - Block force pushes and deletions.
 - Do not allow bypassing the rules.

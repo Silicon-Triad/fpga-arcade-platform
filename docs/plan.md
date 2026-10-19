@@ -107,7 +107,7 @@ Schedule risk: four weeks is tight for 55 issues. If time runs short, M4 (all "s
 | Type | `type:feature`, `type:test`, `type:bug`, `type:docs`, `type:chore` |
 | Priority (from SRS wording) | `prio:shall`, `prio:should` |
 | Owner (fallback if GitHub usernames are not mapped) | `owner:muhammad`, `owner:mujtaba`, `owner:huzaifa` |
-| Process | `frozen-interface` (touches a frozen file; needs an approved interface-change issue), `blocked`, `needs-board` (cannot finish without the DE1-SoC), `agent-ok` (well-scoped enough for an AI agent) |
+| Process | `frozen-interface` (touches a frozen file; needs an approved interface-change issue), `blocked`, `needs-board` (cannot finish without the DE1-SoC), `agent-ok` (well-scoped enough for an AI agent), `hw-milestone` (PR closes M2 or M4; CI requires `hw/reports/`) |
 
 ## 4. Issue list
 

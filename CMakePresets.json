@@ -1,0 +1,52 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {"major": 3, "minor": 25, "patch": 0},
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}"
+    },
+    {
+      "name": "pc-debug",
+      "displayName": "PC debug (SDL2 backend, unit tests)",
+      "inherits": "base",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Debug", "ARCADE_BUILD_TESTS": "ON"}
+    },
+    {
+      "name": "pc-coverage",
+      "displayName": "PC coverage (QA-04)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ARCADE_BUILD_TESTS": "ON",
+        "ARCADE_COVERAGE": "ON"
+      }
+    },
+    {
+      "name": "de1soc-release",
+      "displayName": "DE1-SoC board (ARM Cortex-A9, hard float)",
+      "inherits": "base",
+      "toolchainFile": "${sourceDir}/cmake/arm-linux-gnueabihf.cmake",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "ARCADE_BUILD_TESTS": "OFF"}
+    }
+  ],
+  "buildPresets": [
+    {"name": "pc-debug", "configurePreset": "pc-debug"},
+    {"name": "pc-coverage", "configurePreset": "pc-coverage"},
+    {"name": "de1soc-release", "configurePreset": "de1soc-release"}
+  ],
+  "testPresets": [
+    {
+      "name": "pc-debug",
+      "configurePreset": "pc-debug",
+      "output": {"outputOnFailure": true}
+    },
+    {
+      "name": "pc-coverage",
+      "configurePreset": "pc-coverage",
+      "output": {"outputOnFailure": true}
+    }
+  ]
+}

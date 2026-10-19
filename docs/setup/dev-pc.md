@@ -12,7 +12,7 @@ What you need to build and test the C++ program on a PC (SDL2 backend, UR-17) an
 ```bash
 sudo apt update
 sudo apt install -y build-essential cmake ninja-build git python3 \
-    libsdl2-dev clang-format clang-tidy gcovr \
+    libsdl2-dev libgtest-dev clang-format clang-tidy gcovr \
     gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
     verilator
 ```
@@ -23,7 +23,7 @@ sudo apt install -y build-essential cmake ninja-build git python3 \
 | GCC | 13 (Ubuntu 24.04 default) | PC build |
 | `arm-linux-gnueabihf-g++` | Ubuntu 24.04 package | board build (HPS is ARM Cortex-A9, hard float) |
 | SDL2 | 2.0 | PC backend (SR-FW-06) |
-| GoogleTest | fetched by CMake | unit tests; nothing to install |
+| GoogleTest | 1.14 (`libgtest-dev`) | unit tests; CMake downloads it if the package is missing |
 | clang-format, clang-tidy | Ubuntu 24.04 package | `tools/lint_sw.sh` |
 | gcovr | Ubuntu 24.04 package | coverage gate (QA-04) |
 | Verilator | **5.020** (needs `--timing`) | RTL lint and testbenches in CI |
@@ -44,10 +44,12 @@ verible-verilog-format --version
 ```bash
 git clone https://github.com/Silicon-Triad/fpga-arcade-platform.git
 cd fpga-arcade-platform
-tools/ci_local.sh        # available once issue #2 is merged
+tools/ci_local.sh        # everything CI runs, except Quartus and the board
 ```
 
-Then run the games on your PC:
+If Verible is not installed yet, `ARCADE_SKIP_VERIBLE=1 tools/ci_local.sh` skips it with a warning. CI never skips it.
+
+Then run the games on your PC (once #16 adds `sw/app/`):
 
 ```bash
 cmake --preset pc-debug && cmake --build --preset pc-debug

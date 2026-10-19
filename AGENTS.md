@@ -74,6 +74,7 @@ hw/                  SystemVerilog (Quartus Prime Lite)
 board/deploy/        start-up script, arcade user, hardening               Muhammad
 board/tests/         board test procedures and results                     Huzaifa
 tools/               repo check scripts (includes, sim logs, reports, local CI)
+CMakeLists.txt, CMakePresets.json, cmake/   C++ build and board toolchain file
 ```
 
 Every folder has a `README.md` naming its owner and issues.
@@ -84,7 +85,7 @@ Every folder has a `README.md` naming its owner and issues.
 
 Run every command from the **repository root**. Tool versions and installation are in `docs/setup/`.
 
-> **Status:** these commands are the contract that issue **#2** (scaffold, CMake presets, CI) implements. Until #2 is merged some of them do not exist yet. Do not invent other commands. If one of these fails for a reason other than your change, say so in your PR.
+> **Status:** issue **#2** implements these commands. Two do not work yet: the `arcade` binary arrives with #16 (`sw/app/`), and the layering check with #5. Do not invent other commands. If one of these fails for a reason other than your change, say so in your PR.
 
 ### 3.1 Software (`sw/`)
 
@@ -93,7 +94,7 @@ Run every command from the **repository root**. Tool versions and installation a
 | Configure and build for the PC (SDL2 backend, tests) | `cmake --preset pc-debug && cmake --build --preset pc-debug` |
 | Run all unit tests | `ctest --preset pc-debug --output-on-failure` |
 | Run one test binary | `ctest --preset pc-debug -R <name> --output-on-failure` |
-| Coverage report (gate: ≥ 80 % lines in `sw/engine/` and `sw/games/`, QA-04) | `cmake --preset pc-coverage && cmake --build --preset pc-coverage && ctest --preset pc-coverage && cmake --build --preset pc-coverage --target coverage` |
+| Coverage report (the ≥ 80 % gate on `sw/engine/` and `sw/games/`, QA-04, is added by #24) | `cmake --preset pc-coverage && cmake --build --preset pc-coverage && ctest --preset pc-coverage && cmake --build --preset pc-coverage --target coverage` |
 | Cross-build for the board | `cmake --preset de1soc-release && cmake --build --preset de1soc-release` |
 | Run on the PC | `./build/pc-debug/sw/app/arcade --backend=sdl` |
 | Run on the board (as root) | `./arcade --backend=fpga` |
@@ -124,8 +125,8 @@ Run every command from the **repository root**. Tool versions and installation a
 
 1. Software: build, unit tests, coverage gate, clang-format, clang-tidy, include check.
 2. Hardware: Verilator and Verible lint, and every testbench in Verilator except those tagged `questa-only`.
-3. QuestaSim logs: for every changed module in `hw/rtl/`, `hw/sim/logs/<module>.log` exists, its last line is `PASS`, and it was committed in the same commit as, or after, the module's last change.
-4. Milestone reports: when a PR closes a hardware milestone (M2, M4), `hw/reports/` must contain the `*.fit.summary` and `*.sta.summary` from a full Quartus build, and timing must be met (no negative slack).
+3. QuestaSim logs: for every module changed in `hw/rtl/` or `hw/tb/` (packages excepted), `hw/sim/logs/<module>.log` exists, its last line is `PASS`, and it is newer than the module's last change. "Newer" is checked exactly: the log header holds sha256 hashes of `hw/rtl/<module>.sv` and `hw/tb/tb_<module>.sv` as they were when QuestaSim ran, and they must match the files in the PR. Any edit to either file after the run makes the log stale. A module without a testbench fails this check.
+4. Milestone reports: a PR that closes a hardware milestone (M2, M4) carries the label **`hw-milestone`**. CI then requires `hw/reports/` to contain the `*.fit.summary` and `*.sta.summary` from a full Quartus build, with `Fitter Status : Successful` and no negative slack. Any reports present in other PRs are checked the same way.
 
 ---
 
@@ -156,7 +157,7 @@ Run every command from the **repository root**. Tool versions and installation a
 - **R-4.2.7** Register offsets, bit positions and reset values come **only** from `hw/rtl/arcade_regs_pkg.sv`. Never hard-code them in another module.
 - **R-4.2.8** Every SRS number is a named `localparam` or package constant with its SRS ID in a comment.
 - **R-4.2.9** Testbenches use only the subset both Verilator (≥ 5.020, `--timing`) and QuestaSim accept. A testbench that needs a Questa-only feature has `// questa-only` as its first line and says why on the next line. It is then checked only through its committed log.
-- **R-4.2.10** Every testbench is self-checking. It prints `FAIL: <reason>` on each failure, and its **last line of output is exactly `PASS` or `FAIL`**, followed by `$finish`. Logs are never edited by hand.
+- **R-4.2.10** Every testbench is self-checking. It prints `FAIL: <reason>` on each failure and, as its final message before `$finish`, a line that is exactly `PASS` or `FAIL`. Use `if (errors == 0) $display("PASS"); else $display("FAIL");`, not a `?:` on strings, which Verilator mis-prints. The run counts as passed only if `PASS` was printed and no line starts with `FAIL`; `make -C hw/sim questa` then writes that verdict as the log's last line. Logs are never edited by hand.
 - **R-4.2.11** Commit IP sources (`.qsys`, `.ip`), the `.qpf`, `.qsf` and `.sdc`. Never commit generated output (`db/`, `incremental_db/`, `output_files/`, `simulation/`); the only exception is the summary files copied into `hw/reports/`.
 
 ---
@@ -208,7 +209,7 @@ These interfaces connect people's work. **Changing them breaks someone else.** T
 - **R-7.2.2** Fill in every section of `.github/pull_request_template.md`: issue, SRS IDs, what changed, how it was tested (commands and output), frozen-interface impact, board evidence if any, and the AI-assistance section.
 - **R-7.2.3** Keep PRs small: aim for under 400 changed lines, excluding generated files and logs.
 - **R-7.2.4** CI must be green before review is requested.
-- **R-7.2.5** Hardware PRs include an up-to-date `hw/sim/logs/<module>.log` for every changed module (section 3.4). The PR that closes M2 or M4 also includes `hw/reports/`.
+- **R-7.2.5** Hardware PRs include an up-to-date `hw/sim/logs/<module>.log` for every changed module (section 3.4). The PR that closes M2 or M4 also includes `hw/reports/` and carries the `hw-milestone` label.
 
 ### 7.3 Reviews and merging
 

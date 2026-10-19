@@ -41,7 +41,7 @@ Quartus Prime Lite supports the DE1-SoC's Cyclone V SE device, **5CSEMA5F31C6** 
 | Full build | `quartus_sh --flow compile hw/quartus/arcade` |
 | Collect fit and timing summaries (milestone PRs) | `tools/collect_reports.sh` |
 
-Rules for logs and reports are in `AGENTS.md` sections 3.4, 4.2 and 7.2. In short: commit `hw/sim/logs/<module>.log` (last line `PASS`) with every RTL change, and commit `hw/reports/` in the PR that closes M2 or M4.
+Rules for logs and reports are in `AGENTS.md` sections 3.4, 4.2 and 7.2. In short: commit `hw/sim/logs/<module>.log` (last line `PASS`) with every RTL change, and commit `hw/reports/` in the PR that closes M2 or M4, labelled `hw-milestone`.
 
 ## 4. Team note
 
