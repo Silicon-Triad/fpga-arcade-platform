@@ -79,16 +79,18 @@ Tooling proposal (needs your OK, see section 5):
 
 ## 2. Milestones
 
-Week numbers count from Week 1 = 26 Oct 2026. Please give me the real demo date and I will set due dates.
+Semester calendar: Week 10 starts Mon 19 Oct 2026; release is due at the end of Week 13 (Sun 15 Nov 2026). Hardware and software tracks run in parallel.
 
-| # | Milestone | Exit criterion |
-|---|---|---|
-| M0 | **Foundation** (W1) | Layout, CI green, frozen headers and register package merged and approved by all three |
-| M1 | **PC playable** (W2–W4) | Both games, all screens and high scores playable on the SDL2 backend; Input Manager unit-tested |
-| M2 | **Video on board** (W2–W5) | Test pattern, then a tilemap written by the HAL, shown at 1024×768 on a lab monitor |
-| M3 | **Hardware integration** (W6–W7) | Both games run on the board with a USB keyboard and FPGA backend end to end |
-| M4 | **Sound** (W6–W8) | Sound effects audible on line-out; mute works (all "should" requirements) |
-| M5 | **Verification and release 1.0** (W8–W10) | Every PR/SF/SC/QA test passed and logged; user docs done; tag `v1.0` |
+| # | Milestone | Due | Exit criterion |
+|---|---|---|---|
+| M0 | **Foundation** | Wed 21 Oct (W10) | Layout, CI green, frozen headers and register package merged and approved by all three |
+| M1 | **PC playable** | Sun 1 Nov (end W11) | Both games, all screens and high scores playable on the SDL2 backend; Input Manager unit-tested |
+| M2 | **Video on board** | Sun 1 Nov (end W11) | Test pattern, then a tilemap written by the HAL, shown at 1024×768 on a monitor |
+| M3 | **Hardware integration** | Sun 8 Nov (end W12) | Both games run on the board with a USB keyboard and FPGA backend end to end |
+| M4 | **Sound** | Sun 8 Nov (end W12) | Sound effects audible on line-out; mute works (all "should" requirements) |
+| M5 | **Verification and release 1.0** | Sun 15 Nov (end W13) | Every PR/SF/SC/QA test passed and logged; user docs done; tag `v1.0` |
+
+Schedule risk: four weeks is tight for 55 issues. If time runs short, M4 (all "should" requirements) is cut first, as the SRS priority allows.
 
 ## 3. Labels
 
@@ -182,10 +184,12 @@ Format: **ID. Title** (owner, milestone, labels). *SRS IDs.* Acceptance check.
 All 107 SRs, 8 PRs, 7 SFs, 6 SCs and 6 QAs (134 in total) appear in at least one issue:
 SR-FW 01–14 (#6, 7, 10, 13–16), SR-UI 01–15 (#7–9, 11, 12, 14), SR-GAM 01–22 (#13, 17, 18), SR-INP 01–16 (#19–21), SR-VGA 01–11 (#24–26), SR-AUD 01–09 (#40, 41), SR-HAL 01–13 (#33–35, 42, 43), SR-REN 01, 03–08 (#28–30), PR 01–08 (#6, 22, 31, 37, 44–47), SF 01–07 (#15, 17, 41, 44, 48, 49, 51, 53), SC 01–06 (#10, 20, 38), QA 01–06 (#4, 7, 16, 23, 50–52).
 
-## 5. Decisions I need from you
+## 5. Decisions
 
-1. **GitHub usernames** for Muhammad, Mujtaba and Huzaifa, so issues get assignees and CODEOWNERS works. Without them I'll use the `owner:*` labels only.
-2. **Milestone dates**: demo date or semester end.
-3. **Quartus Prime version** in the lab (CON-08 open item), to pin it in the setup docs.
-4. **CI hardware checks**: OK to use Verilator lint and Verible in CI, with QuestaSim testbenches run locally or in the lab?
-5. **Merge style**: squash-merge into `main` with 1 review from the area owner, and all three for `frozen-interface` changes. OK?
+| # | Decision | Answer |
+|---|---|---|
+| 1 | GitHub usernames | Muhammad = @Muhammad-Ahmed-Qazi, Mujtaba = @MujtabaJRao, Huzaifa = @huzaifa-2123 |
+| 2 | Dates | Release by end of Week 13 (15 Nov 2026); milestone dates in section 2 |
+| 3 | Quartus | No lab install; each member uses Quartus Prime 25.1 or later on their own machine, free edition only |
+| 4 | Hardware checks in CI | **Open**, under discussion |
+| 5 | Merge style | Squash-merge into `main`; 1 review from the area owner; all three for `frozen-interface` changes |
