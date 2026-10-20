@@ -85,7 +85,7 @@ Every folder has a `README.md` naming its owner and issues.
 
 Run every command from the **repository root**. Tool versions and installation are in `docs/setup/`.
 
-> **Status:** issue **#2** implements these commands. Two do not work yet: the `arcade` binary arrives with #16 (`sw/app/`), and the layering check with #5. Do not invent other commands. If one of these fails for a reason other than your change, say so in your PR.
+> **Status:** issue **#2** implements these commands. One does not work yet: the `arcade` binary arrives with #16 (`sw/app/`). Do not invent other commands. If one of these fails for a reason other than your change, say so in your PR.
 
 ### 3.1 Software (`sw/`)
 
