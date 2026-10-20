@@ -188,7 +188,7 @@ These interfaces connect people's work. **Changing them breaks someone else.** T
 
 - **R-6.1** A file implementing a frozen interface starts with the comment `// FROZEN INTERFACE: see AGENTS.md section 6. Do not change without an approved issue.` (`//` works in both C++ and SystemVerilog.)
 - **R-6.2** To change one: open an issue with the **Interface change** template and the `frozen-interface` label. Say what changes, why, which SRS text it touches, and who is affected. All three members approve on the issue **before** any code changes.
-- **R-6.3** The PR implementing an approved change links the issue, carries the `frozen-interface` label, and needs approval from **all three** members. CODEOWNERS enforces this.
+- **R-6.3** The PR implementing an approved change links the issue, carries the `frozen-interface` label, and needs approval from **all three** members, which in practice means both members who are not the author. GitHub does not enforce this (CODEOWNERS accepts any one listed owner), so nobody merges a `frozen-interface` PR until both have approved.
 - **R-6.4** Adding is not free either: a new register, API call or table field is a frozen-interface change.
 - **R-6.5** The register map's C++ and SystemVerilog copies change in the **same PR**.
 
@@ -213,7 +213,7 @@ These interfaces connect people's work. **Changing them breaks someone else.** T
 
 ### 7.3 Reviews and merging
 
-- **R-7.3.1** Every PR needs **1 approving review from the area owner** (from `.github/CODEOWNERS`). When the author is the area owner, another member reviews.
+- **R-7.3.1** Every PR needs **1 approving review from the area owner** (from `.github/CODEOWNERS`, which also requests reviewers automatically). When the author is the area owner, another member reviews. GitHub enforces 1 approval; the choice of reviewer is kept by the team.
 - **R-7.3.2** Frozen-interface PRs need approval from **all three** members.
 - **R-7.3.3** Merge with **squash merge** only. The squash commit message follows R-5.2.
 - **R-7.3.4** The reviewer checks: the change matches the SRS IDs cited; tests exist and were run; nothing outside the issue's scope changed; no frozen interface changed without approval; no hardware value is invented (R-9.4); the done checklist (section 9) is complete.

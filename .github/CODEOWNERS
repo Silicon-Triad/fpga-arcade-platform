@@ -1,5 +1,7 @@
-# Area owners (AGENTS.md section 8). One owner approval per PR (R-7.3.1).
-# Frozen interfaces need all three (R-6.3), so those paths list everyone.
+# Area owners (AGENTS.md section 8). GitHub uses this file to request reviewers
+# automatically; it does not enforce approvals (see docs/setup/github.md).
+# Frozen-interface paths list all three so everyone is asked to review; the
+# all-three approval rule (AGENTS.md R-6.3) is kept by the team, not by GitHub.
 
 *                               @Muhammad-Ahmed-Qazi
 
