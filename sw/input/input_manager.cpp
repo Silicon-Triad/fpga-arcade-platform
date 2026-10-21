@@ -11,10 +11,17 @@
 namespace arcade {
 namespace {
 
+/// Most digits accepted after "event". Not an SRS value: a guard so the number fits in a long.
+constexpr std::size_t kMaxEventDigits = 9;
+
 /// Event number of a `/dev/input` entry named "event<N>", or -1 for any other name (SR-INP-01).
 long eventNumber(const std::string& name) {
     const std::size_t prefixLen = std::strlen(InputManager::kEventPrefix);
     if (name.size() <= prefixLen || name.compare(0, prefixLen, InputManager::kEventPrefix) != 0) {
+        return -1;
+    }
+    // Real event numbers are small; longer names are rejected so `number` cannot overflow.
+    if (name.size() - prefixLen > kMaxEventDigits) {
         return -1;
     }
     long number = 0;
@@ -43,6 +50,12 @@ InputManager::~InputManager() {
 }
 
 bool InputManager::start() {
+    // A repeated scan replaces the current keyboard; close it first so its fd and grab are freed.
+    if (fd_ >= 0) {
+        sys_.close(fd_);
+        fd_ = -1;
+        path_.clear();
+    }
     // SR-INP-01: "first" device = lowest event number, so event2 comes before event10.
     std::vector<std::pair<long, std::string>> candidates;
     for (const std::string& name : sys_.listDir(kInputDir)) {

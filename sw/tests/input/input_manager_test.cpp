@@ -195,6 +195,23 @@ TEST_F(InputManagerTest, SR_INP_01_NoDevicesMeansNoKeyboard) {
     EXPECT_EQ(sys.readCalls, 0);
 }
 
+TEST_F(InputManagerTest, SR_INP_01_OverlongEventNumberIsIgnored) {
+    sys.addDevice("event99999999999999999999", keyboardBits());
+    sys.addDevice("event1234567890", keyboardBits());
+    InputManager im(sys);
+    EXPECT_FALSE(im.start());
+    EXPECT_TRUE(sys.openFlags.empty());
+}
+
+TEST_F(InputManagerTest, StartTwiceClosesThePreviousKeyboard) {
+    sys.addDevice("event0", keyboardBits());
+    InputManager im(sys);
+    ASSERT_TRUE(im.start());
+    ASSERT_TRUE(im.start());
+    EXPECT_EQ(sys.open_.size(), 1U);  // the first fd was closed, not leaked
+    EXPECT_EQ(im.devicePath(), "/dev/input/event0");
+}
+
 // --- SR-INP-02 and SR-INP-03: open mode and grab ---------------------------------------------
 
 TEST_F(InputManagerTest, SR_INP_02_OpensReadOnlyAndNonBlocking) {
