@@ -29,7 +29,7 @@ class ArcadeApi {
                                TileIndex tile) noexcept = 0;
 
     /// Draws `text` with its first character's top-left cell at (col, row) (SR-FW-12):
-    /// scale x1 uses one font tile per character, scale x4 uses 4 x 4 quadrant-mosaic tiles.
+    /// scale X1 uses one font tile per character, scale X4 uses 4 x 4 quadrant-mosaic tiles.
     /// @return OutOfRange if the text does not fit; InvalidArgument for a character with no
     /// font tile. Nothing is drawn in either case.
     virtual ApiStatus drawText(int col, int row, std::string_view text,
@@ -40,6 +40,7 @@ class ArcadeApi {
 
     /// Ends the frame: publishes the shadow tilemap and returns at the next display refresh,
     /// which locks the game loop to 60 ticks per second (SR-FW-02, SR-HAL-08).
+    /// @return BackendError if the bank swap is not confirmed before the HAL timeout.
     virtual ApiStatus present() noexcept = 0;
 
     /// Returns this tick's input; never blocks (SR-FW-02, SR-INP-02, App. A Action events).
@@ -56,10 +57,14 @@ class ArcadeApi {
     virtual void setMute(bool on) noexcept = 0;
 
     /// Loads all 256 tile patterns and the 16-colour palette, in TBL-TilePattern and
-    /// TBL-Palette format, at start-up (SR-FW-01, SR-REN-04).
+    /// TBL-Palette format (SR-FW-01, SR-REN-04). Called once, by the Game Engine at start-up,
+    /// with one combined set: the font, the 16 quadrant-mosaic tiles and every game's tiles.
+    /// Games never call it. Display enable is set only after it succeeds (SR-HAL-13).
     virtual ApiStatus loadTiles(const TileSet& patterns, const Palette& palette) noexcept = 0;
 
-    /// Number of frames presented since start-up; increases by one per present() (SR-FW-02).
+    /// Number of frames displayed since power-on (FPGA Frame Counter register, SR-HAL-06) or
+    /// since the SDL2 window opened. It counts display refreshes, not present() calls, so it
+    /// equals the tick count only when no tick overruns its frame (SR-FW-02).
     virtual std::uint32_t frameCount() const noexcept = 0;
 };
 

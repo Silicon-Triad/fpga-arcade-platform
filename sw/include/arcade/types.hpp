@@ -44,12 +44,14 @@ enum class Action : std::uint8_t {
     Back,
     Pause,
     Launch,
-    Char,  ///< A letter A-Z; the letter is in InputEvent::ch (Initials screen, SR-UI-10).
+    Char,  ///< A letter A-Z, Initials context only; the letter is in InputEvent::ch (SR-INP-11,
+           ///< SR-UI-10).
     Delete,
     Mute,  ///< Toggles sound through setMute() (SR-FW-11).
 };
 /// Number of Action values; size of the held-state array (TBL-KeyBinding).
 constexpr std::size_t kActionCount = 11;
+static_assert(static_cast<std::size_t>(Action::Mute) + 1 == kActionCount, "TBL-KeyBinding");
 
 /// Sound effect played by playSound() (TBL-SoundEffect effect_id 0-6, SR-HAL-11).
 enum class EffectId : std::uint8_t {
@@ -63,11 +65,32 @@ enum class EffectId : std::uint8_t {
 };
 /// Number of sound effects (TBL-SoundEffect, ids 0-6).
 constexpr std::size_t kEffectCount = 7;
+static_assert(static_cast<std::size_t>(EffectId::MenuSelect) + 1 == kEffectCount,
+              "TBL-SoundEffect");
+
+/// Key-binding context: which TBL-KeyBinding rows translate keys (SR-INP-09, App. A
+/// input_context). Global is the fallback table searched second; it is never the current
+/// context.
+enum class InputContext : std::uint8_t {
+    Global,
+    Menu,
+    Snake,
+    Breakout,
+    Paused,
+    GameOver,
+    Initials,
+    HighScores,
+    ShutdownConfirm,
+};
+/// Number of InputContext values (TBL-KeyBinding context).
+constexpr std::size_t kInputContextCount = 9;
+static_assert(static_cast<std::size_t>(InputContext::ShutdownConfirm) + 1 == kInputContextCount,
+              "TBL-KeyBinding");
 
 /// Kind of input event delivered by pollInput() (App. A Inputs and outputs; SR-INP-08,
 /// SR-INP-14, SR-UI-11).
 enum class InputEventType : std::uint8_t {
-    KeyDown,        ///< A bound key was pressed.
+    KeyDown,        ///< A bound key was pressed; auto-repeat is discarded (SR-INP-07).
     KeyUp,          ///< A bound key was released.
     KeyboardLost,   ///< The keyboard was removed (SR-INP-14, SR-UI-11).
     KeyboardFound,  ///< A keyboard was found again (SR-INP-14, SR-UI-11).
@@ -91,15 +114,17 @@ constexpr std::size_t kMaxEventsPerTick = 32;
 struct InputFrame {
     std::array<InputEvent, kMaxEventsPerTick> events{};  ///< events[0 .. count-1] are valid.
     std::size_t count = 0;                               ///< Number of valid events.
-    std::array<bool, kActionCount> held{};  ///< held[action] is true while a key bound to it is
-                                            ///< down, e.g. for paddle movement (SR-GAM-09).
+    /// held[action] is true while a key bound to it is down, e.g. for paddle movement
+    /// (SR-GAM-09). Derived by the Input Manager from the per-key state (App. A key_state,
+    /// SR-INP-08) through the current context's bindings, then Global's (SR-INP-09).
+    std::array<bool, kActionCount> held{};
 };
 
 /// Text size for drawText() (SR-FW-12): one font tile per character, or 4x4 tiles per character
 /// built from the 16 quadrant-mosaic tiles.
 enum class TextScale : std::uint8_t {
-    x1 = 1,
-    x4 = 4,
+    X1 = 1,
+    X4 = 4,
 };
 
 /// Result of an Arcade API call; the API never throws (R-4.1.5).

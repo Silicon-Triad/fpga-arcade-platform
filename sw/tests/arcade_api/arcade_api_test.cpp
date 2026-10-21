@@ -1,5 +1,6 @@
-// Compile-only checks of the frozen Arcade API, game interface and shared types (issue #3),
-// plus the pollInput() overflow contract (kMaxEventsPerTick) shown on a dummy backend.
+// Compile-only checks of the frozen Arcade API, engine API, game interface and shared types
+// (issue #3), plus the contracts of pollInput() overflow, setInputContext() and the game sound
+// rule, shown on a dummy backend and a dummy game.
 #include "arcade/arcade_api.hpp"
 
 #include <gtest/gtest.h>
@@ -10,6 +11,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include "arcade/engine_api.hpp"
 #include "arcade/game.hpp"
 #include "arcade/types.hpp"
 
@@ -22,16 +24,17 @@ static_assert(sizeof(TilePattern) == kTilePatternBytes && kTilePatternBytes == 3
               "TBL-TilePattern: 32 bytes per tile");
 static_assert(std::tuple_size_v<TileSet> == 256, "TBL-TilePattern: 256 tiles");
 static_assert(std::tuple_size_v<Palette> == 16, "TBL-Palette: 16 colours");
-static_assert(static_cast<std::size_t>(Action::Mute) + 1 == kActionCount,
-              "TBL-KeyBinding: 11 actions");
-static_assert(static_cast<int>(EffectId::Eat) == 0 && static_cast<int>(EffectId::MenuSelect) == 6,
+static_assert(kActionCount == 11, "TBL-KeyBinding: 11 actions");
+static_assert(static_cast<int>(EffectId::Eat) == 0 && kEffectCount == 7,
               "TBL-SoundEffect: effect ids 0-6");
-static_assert(kEffectCount == 7, "TBL-SoundEffect: 7 effects");
-static_assert(std::is_abstract_v<ArcadeApi> && std::is_abstract_v<Game>,
+static_assert(kInputContextCount == 9, "TBL-KeyBinding: 9 contexts");
+static_assert(std::is_abstract_v<ArcadeApi> && std::is_abstract_v<EngineApi> &&
+                  std::is_abstract_v<Game>,
               "SR-FW-03, SR-FW-05: abstract interfaces");
+static_assert(std::is_base_of_v<ArcadeApi, EngineApi>, "games get the engine API as ArcadeApi");
 
 // Minimal backend: records calls; pollInput() drains a queue as the API contract requires.
-class DummyApi : public ArcadeApi {
+class DummyApi : public EngineApi {
   public:
     ApiStatus setTile(int col, int row, TileIndex tile) noexcept override {
         if (col < 0 || col >= kGridCols || row < 0 || row >= kGridRows) {
@@ -64,21 +67,34 @@ class DummyApi : public ArcadeApi {
         }
         return frame;
     }
-    void playSound(EffectId /*effectId*/) noexcept override {}
+    void playSound(EffectId effectId) noexcept override {
+        lastSound = effectId;
+        ++soundCalls;
+    }
     void setMute(bool on) noexcept override { muted = on; }
     ApiStatus loadTiles(const TileSet& /*patterns*/, const Palette& /*palette*/) noexcept override {
         return ApiStatus::Ok;
     }
     std::uint32_t frameCount() const noexcept override { return frames; }
+    ApiStatus setInputContext(InputContext ctx) noexcept override {
+        if (ctx == InputContext::Global) {
+            return ApiStatus::InvalidArgument;
+        }
+        context = ctx;
+        return ApiStatus::Ok;
+    }
 
     std::deque<InputEvent> pending;
     int drawCalls = 0;
     TileIndex lastTile = 0;
     bool muted = false;
     std::uint32_t frames = 0;
+    int soundCalls = 0;
+    EffectId lastSound = EffectId::Eat;
+    InputContext context = InputContext::Menu;
 };
 
-// Minimal game: counts Select presses as score, ends on Back.
+// Minimal game: counts Select presses as score (playing MenuSelect once each), ends on Back.
 class DummyGame : public Game {
   public:
     void init() noexcept override {
@@ -90,6 +106,7 @@ class DummyGame : public Game {
             const InputEvent& e = input.events[i];
             if (e.type == InputEventType::KeyDown && e.action == Action::Select) {
                 ++score_;
+                soundPending_ = true;
             }
             if (e.type == InputEventType::KeyDown && e.action == Action::Back) {
                 over_ = true;
@@ -98,7 +115,11 @@ class DummyGame : public Game {
     }
     void render(ArcadeApi& api) noexcept override {
         api.clear(0);
-        api.drawText(0, 0, "SCORE", TextScale::x1);
+        api.drawText(0, 0, "SCORE", TextScale::X1);
+        if (soundPending_) {  // Sound rule in game.hpp: once, in the next render().
+            api.playSound(EffectId::MenuSelect);
+            soundPending_ = false;
+        }
     }
     bool isOver() const noexcept override { return over_; }
     std::uint32_t score() const noexcept override { return score_; }
@@ -106,6 +127,7 @@ class DummyGame : public Game {
   private:
     std::uint32_t score_ = 0;
     bool over_ = false;
+    bool soundPending_ = false;
 };
 
 TEST(ArcadeApi, SR_FW_03_DummyGameImplementsInterface) {
@@ -132,6 +154,28 @@ TEST(ArcadeApi, SR_FW_05_GameDrawsOnlyThroughApi) {
     a.playSound(EffectId::MenuSelect);
     a.setMute(true);
     EXPECT_TRUE(api.muted);
+}
+
+TEST(EngineApi, SR_INP_09_SetInputContextRejectsGlobal) {
+    DummyApi api;
+    EngineApi& engine = api;
+    EXPECT_EQ(engine.setInputContext(InputContext::Initials), ApiStatus::Ok);
+    EXPECT_EQ(api.context, InputContext::Initials);
+    EXPECT_EQ(engine.setInputContext(InputContext::Global), ApiStatus::InvalidArgument);
+    EXPECT_EQ(api.context, InputContext::Initials);
+}
+
+TEST(Game, SR_UI_05_SoundPlayedOnceNotReplayedWithoutUpdate) {
+    DummyApi api;
+    DummyGame game;
+    game.init();
+    api.pending.push_back({InputEventType::KeyDown, Action::Select, 0});
+    game.update(api.pollInput());
+    game.render(api);
+    EXPECT_EQ(api.soundCalls, 1);
+    EXPECT_EQ(api.lastSound, EffectId::MenuSelect);
+    game.render(api);  // e.g. paused: render() without update() plays nothing (SR-UI-05)
+    EXPECT_EQ(api.soundCalls, 1);
 }
 
 TEST(ArcadeApi, SR_INP_02_PollInputKeepsOverflowQueuedInOrder) {

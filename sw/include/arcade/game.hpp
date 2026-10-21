@@ -24,6 +24,10 @@ class Game {
     virtual void update(const InputFrame& input) noexcept = 0;
 
     /// Draws the current state through `api`; does not call present() (SR-FW-02, SR-FW-03).
+    /// Sound rule: a game plays the sound for each event of the last update() exactly once, in
+    /// the first render() after it, then forgets it. The engine may call render() again without
+    /// update(), for example while paused (SR-UI-05); such a call plays nothing
+    /// (SR-GAM-15 ... SR-GAM-22). Not const, because it clears the pending sounds.
     virtual void render(ArcadeApi& api) noexcept = 0;
 
     /// True once the game has ended (SR-FW-03).
