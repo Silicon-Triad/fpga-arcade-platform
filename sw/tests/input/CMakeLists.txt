@@ -1,0 +1,1 @@
+arcade_add_test(input_manager_test SOURCES input_manager_test.cpp LIBS arcade_input)

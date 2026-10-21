@@ -12,6 +12,8 @@ if(ARCADE_COVERAGE)
     add_link_options(--coverage)
 endif()
 
+add_subdirectory(input)
+
 if(ARCADE_BUILD_TESTS)
     # GoogleTest: use the system package (libgtest-dev) if present, else fetch it.
     find_package(GTest 1.14 QUIET)

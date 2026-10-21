@@ -9,3 +9,4 @@ function(arcade_add_test name)
 endfunction()
 
 add_subdirectory(smoke)
+add_subdirectory(input)
