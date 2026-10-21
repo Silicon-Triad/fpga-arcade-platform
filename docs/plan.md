@@ -23,7 +23,7 @@ fpga-arcade-platform/
 ├── README.md
 ├── .github/
 │   ├── workflows/ci.yml      # sw build+test+lint, hw lint, interface checks
-│   ├── CODEOWNERS            # area → owner; frozen files need all three
+│   ├── CODEOWNERS            # area → owner; requests reviewers automatically
 │   ├── pull_request_template.md
 │   └── ISSUE_TEMPLATE/       # feature.yml, bug.yml, interface-change.yml
 ├── docs/
@@ -32,10 +32,11 @@ fpga-arcade-platform/
 │   ├── setup/                # dev-pc.md, fpga-toolchain.md, board.md, github.md
 │   ├── user/                 # quick-start.md, player-manual.md
 │   └── dev/                  # developer-guide.md (adding a game)
-├── sw/                       # C++17, CMake
+├── CMakeLists.txt            # top-level C++ build (adds sw/)
+├── CMakePresets.json         # pc-debug, pc-coverage, de1soc-release
+├── cmake/arm-linux-gnueabihf.cmake
+├── sw/                       # C++17
 │   ├── CMakeLists.txt
-│   ├── CMakePresets.json     # pc-debug, pc-coverage, de1soc-release
-│   ├── cmake/arm-linux-gnueabihf.cmake
 │   ├── include/arcade/       # FROZEN public headers
 │   │   ├── arcade_api.hpp    # Arcade API (setTile, fillRect, drawText, clear, present,
 │   │   │                     #   pollInput, playSound, setMute, loadTiles, frameCount)
@@ -190,8 +191,8 @@ Format: **ID. [GitHub issue] Title** (owner, milestone, labels). *SRS IDs.* Acce
 
 ### Coverage check
 
-All 107 SRs, 8 PRs, 7 SFs, 6 SCs and 6 QAs (134 in total) appear in at least one issue:
-SR-FW 01–14 (#6, 7, 10, 13–16), SR-UI 01–15 (#7–9, 11, 12, 14), SR-GAM 01–22 (#13, 17, 18), SR-INP 01–16 (#19–21), SR-VGA 01–11 (#24–26), SR-AUD 01–09 (#40, 41), SR-HAL 01–13 (#33–35, 42, 43), SR-REN 01, 03–08 (#28–30), PR 01–08 (#6, 22, 31, 37, 44–47), SF 01–07 (#15, 17, 41, 44, 48, 49, 51, 53), SC 01–06 (#10, 20, 38), QA 01–06 (#4, 7, 16, 23, 50–52).
+All 107 SRs, 8 PRs, 7 SFs, 6 SCs and 6 QAs (134 in total) appear in at least one GitHub issue:
+SR-FW 01–14 (#7, #8, #11, #14–#17), SR-UI 01–15 (#8–#10, #12, #13, #15), SR-GAM 01–22 (#14, #18, #19), SR-INP 01–16 (#20–#22), SR-VGA 01–11 (#25–#27), SR-AUD 01–09 (#41, #42), SR-HAL 01–13 (#34–#36, #43, #44), SR-REN 01, 03–08 (#29–#31), PR 01–08 (#7, #23, #32, #38, #45–#48), SF 01–07 (#16, #18, #42, #45, #49, #50, #52, #54), SC 01–06 (#11, #21, #39), QA 01–06 (#5, #8, #17, #24, #51–#53).
 
 ## 5. Decisions
 
