@@ -17,6 +17,8 @@
 
 /sw/hal/                        @MujtabaJRao
 /sw/backend_fpga/               @MujtabaJRao
+/sw/tests/hal/                  @MujtabaJRao
+/sw/tests/backend_fpga/         @MujtabaJRao
 /hw/ip/                         @MujtabaJRao
 /hw/quartus/                    @MujtabaJRao
 /hw/reports/                    @MujtabaJRao
@@ -27,6 +29,7 @@
 /hw/tb/tb_tile_renderer.sv      @MujtabaJRao
 
 /sw/input/                      @huzaifa-2123
+/sw/tests/input/                @huzaifa-2123
 /board/tests/                   @huzaifa-2123
 /hw/rtl/vga_controller.sv       @huzaifa-2123
 /hw/rtl/tone_generator.sv       @huzaifa-2123

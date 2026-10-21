@@ -8,8 +8,9 @@ on:
   push:
     branches: [main]
 
+# Label events get their own group, so adding a label never cancels a real run.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ contains(fromJSON('["labeled","unlabeled"]'), github.event.action) && 'label' || 'code' }}
   cancel-in-progress: true
 
 permissions:
@@ -18,6 +19,8 @@ permissions:
 jobs:
   sw:
     name: sw (build, tests, coverage, cross build, lint)
+    # A label change cannot change the code, so only the checks job re-runs for it.
+    if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -37,6 +40,7 @@ jobs:
 
   hw:
     name: hw (Verilator and Verible lint, Verilator testbenches)
+    if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
