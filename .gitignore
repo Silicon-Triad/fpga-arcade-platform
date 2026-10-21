@@ -1,85 +1,90 @@
+# ---- C++ ----
 # Prerequisites
 *.d
 
-# Compiled Object files
+# Compiled object files
 *.slo
 *.lo
 *.o
 *.obj
 
-# Precompiled Headers
+# Precompiled headers
 *.gch
 *.pch
 
-# Linker files
+# Linker and debugger files
 *.ilk
-
-# Debugger Files
 *.pdb
+*.dwo
 
-# Compiled Dynamic libraries
+# Compiled dynamic and static libraries
 *.so
+*.so.*
 *.dylib
 *.dll
-*.so.*
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
 *.lai
 *.la
 *.a
 *.lib
+
+# Fortran module files
+*.mod
+*.smod
 
 # Executables
 *.exe
 *.out
 *.app
 
-# Build directories
+# Build trees (we build out of tree, in build/)
 build/
 Build/
 build-*/
+CMakeUserPresets.json
 
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-install_manifest.txt
-compile_commands.json
+# CMake files from an accidental in-source build at the repo root
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/Makefile
+/install_manifest.txt
+/compile_commands.json
 
-# Temporary files
+# Test output and caches
+Testing/
+.cache/
+vcpkg_installed/
+
+# Editors and temporary files
+.vscode/
 *.tmp
-*.log
 *.bak
 *.swp
 
-# vcpkg
-vcpkg_installed/
+# Logs (committed QuestaSim logs are the exception)
+*.log
+!hw/sim/logs/*.log
 
-# debug information files
-*.dwo
-
-# test output & cache
-Testing/
-.cache/
-
-# Quartus
-build/
+# ---- Quartus / Platform Designer (summaries are copied to hw/reports/) ----
 db/
 incremental_db/
 output_files/
-simulation/
+qdb/
+tmp-clearbox/
+hw/ip/**/synthesis/
+hw/ip/**/simulation/
 *.qws
 *.rpt
-*.summary
 *.smsg
 *.sof
 *.rbf
+*.summary
+!hw/reports/*.summary
+
+# ---- Simulation ----
+obj_dir/
+work/
+transcript
+*.wlf
 *.vcd
 *.fst
-obj_dir/
-.vscode/

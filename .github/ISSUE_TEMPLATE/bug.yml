@@ -1,0 +1,15 @@
+name: Bug
+description: Something does not behave as the SRS says
+labels: ["type:bug"]
+body:
+  - type: input
+    id: srs
+    attributes: {label: SRS IDs violated}
+  - type: textarea
+    id: steps
+    attributes: {label: Steps to reproduce, description: "Backend (sdl/fpga), commands, inputs"}
+    validations: {required: true}
+  - type: textarea
+    id: expected
+    attributes: {label: Expected (per SRS) and actual behaviour}
+    validations: {required: true}

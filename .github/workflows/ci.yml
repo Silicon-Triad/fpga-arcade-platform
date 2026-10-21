@@ -1,0 +1,89 @@
+# CI for every PR and every push to main (AGENTS.md section 3.4). Target: under 5 minutes.
+# No Quartus and no QuestaSim here: committed QuestaSim logs and Quartus reports are checked instead.
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: [main]
+
+# Label events get their own group, so adding a label never cancels a real run.
+concurrency:
+  group: ci-${{ github.ref }}-${{ contains(fromJSON('["labeled","unlabeled"]'), github.event.action) && 'label' || 'code' }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  sw:
+    name: sw (build, tests, coverage, cross build, lint)
+    # A label change cannot change the code, so only the checks job re-runs for it.
+    if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends ninja-build clang-format clang-tidy \
+            gcovr libgtest-dev libsdl2-dev g++-arm-linux-gnueabihf
+      - name: Build, test, coverage, cross build, format, clang-tidy, include check
+        run: tools/ci_local.sh --sw-only
+      - name: GoogleTest download fallback (as on a PC without libgtest-dev)
+        run: |
+          cmake -S . -B build/gtest-fetch -G Ninja -DCMAKE_DISABLE_FIND_PACKAGE_GTest=ON
+          cmake --build build/gtest-fetch
+          ctest --test-dir build/gtest-fetch --output-on-failure
+
+  hw:
+    name: hw (Verilator and Verible lint, Verilator testbenches)
+    if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      # Pinned Verible release; update deliberately, in its own PR.
+      VERIBLE_TAG: v0.0-4296-g0f262651
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Verilator
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends verilator
+          verilator --version
+      - name: Install Verible
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download $VERIBLE_TAG -R chipsalliance/verible \
+            --pattern '*linux-static-x86_64.tar.gz' --output verible.tar.gz
+          mkdir -p "$RUNNER_TEMP/verible"
+          tar -xzf verible.tar.gz -C "$RUNNER_TEMP/verible" --strip-components=1
+          echo "$RUNNER_TEMP/verible/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/verible/bin/verible-verilog-lint" --version | head -n 1
+      - name: Lint
+        run: make -C hw/sim lint
+      - name: Testbenches (Verilator)
+        run: make -C hw/sim verilator
+
+  checks:
+    name: checks (QuestaSim logs, Quartus reports)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: QuestaSim logs for changed modules
+        run: |
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            python3 tools/check_sim_logs.py --base "origin/${{ github.base_ref }}"
+          else
+            python3 tools/check_sim_logs.py --all
+          fi
+      - name: Quartus reports (required on PRs labelled hw-milestone)
+        run: >
+          python3 tools/check_reports.py
+          ${{ contains(github.event.pull_request.labels.*.name, 'hw-milestone') && '--require' || '' }}

@@ -1,0 +1,5 @@
+# C++ style (AGENTS.md R-4.1.2)
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 100
+AccessModifierOffset: -2

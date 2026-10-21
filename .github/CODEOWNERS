@@ -1,0 +1,50 @@
+# Area owners (AGENTS.md section 8). GitHub uses this file to request reviewers
+# automatically; it does not enforce approvals (see docs/setup/github.md).
+# Frozen-interface paths list all three so everyone is asked to review; the
+# all-three approval rule (AGENTS.md R-6.3) is kept by the team, not by GitHub.
+
+*                               @Muhammad-Ahmed-Qazi
+
+/sw/engine/                     @Muhammad-Ahmed-Qazi
+/sw/games/                      @Muhammad-Ahmed-Qazi
+/sw/assets/                     @Muhammad-Ahmed-Qazi
+/sw/backend_sdl/                @Muhammad-Ahmed-Qazi
+/sw/app/                        @Muhammad-Ahmed-Qazi
+/board/deploy/                  @Muhammad-Ahmed-Qazi
+/tools/                         @Muhammad-Ahmed-Qazi
+/.github/                       @Muhammad-Ahmed-Qazi
+/docs/dev/                      @Muhammad-Ahmed-Qazi
+
+/sw/hal/                        @MujtabaJRao
+/sw/backend_fpga/               @MujtabaJRao
+/sw/tests/hal/                  @MujtabaJRao
+/sw/tests/backend_fpga/         @MujtabaJRao
+/hw/ip/                         @MujtabaJRao
+/hw/quartus/                    @MujtabaJRao
+/hw/reports/                    @MujtabaJRao
+/hw/rtl/bridge_regs.sv          @MujtabaJRao
+/hw/rtl/tile_renderer.sv        @MujtabaJRao
+/hw/rtl/arcade_top.sv           @MujtabaJRao
+/hw/tb/tb_bridge_regs.sv        @MujtabaJRao
+/hw/tb/tb_tile_renderer.sv      @MujtabaJRao
+
+/sw/input/                      @huzaifa-2123
+/sw/tests/input/                @huzaifa-2123
+/board/tests/                   @huzaifa-2123
+/hw/rtl/vga_controller.sv       @huzaifa-2123
+/hw/rtl/tone_generator.sv       @huzaifa-2123
+/hw/rtl/i2s_tx.sv               @huzaifa-2123
+/hw/tb/tb_vga_controller.sv     @huzaifa-2123
+/hw/tb/tb_tone_generator.sv     @huzaifa-2123
+/hw/tb/tb_i2s_tx.sv             @huzaifa-2123
+/docs/user/quick-start.md       @huzaifa-2123
+
+/hw/sim/                        @MujtabaJRao @huzaifa-2123
+
+# Frozen interfaces and rules: all three
+/sw/include/arcade/             @Muhammad-Ahmed-Qazi @MujtabaJRao @huzaifa-2123
+/sw/hal/register_map.hpp        @Muhammad-Ahmed-Qazi @MujtabaJRao @huzaifa-2123
+/hw/rtl/arcade_regs_pkg.sv      @Muhammad-Ahmed-Qazi @MujtabaJRao @huzaifa-2123
+/docs/srs/                      @Muhammad-Ahmed-Qazi @MujtabaJRao @huzaifa-2123
+/AGENTS.md                      @Muhammad-Ahmed-Qazi @MujtabaJRao @huzaifa-2123
+/.github/CODEOWNERS             @Muhammad-Ahmed-Qazi @MujtabaJRao @huzaifa-2123

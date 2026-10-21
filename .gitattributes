@@ -1,0 +1,10 @@
+# Keep LF everywhere the tools hash or execute files (QuestaSim log hashes, shell scripts).
+* text=auto
+*.sv text eol=lf
+*.svh text eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.log text eol=lf
+*.summary text eol=lf
+*.pdf binary
+*.png binary

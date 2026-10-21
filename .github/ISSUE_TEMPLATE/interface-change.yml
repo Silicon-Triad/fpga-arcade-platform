@@ -1,0 +1,32 @@
+name: Interface change (frozen)
+description: Propose a change to the register map, Arcade API, game interface or a table schema
+labels: ["frozen-interface"]
+body:
+  - type: dropdown
+    id: iface
+    attributes: {label: Interface, options: [Register map, Arcade API, Game interface, Table schema]}
+    validations: {required: true}
+  - type: textarea
+    id: change
+    attributes: {label: Exact change, description: "Before and after"}
+    validations: {required: true}
+  - type: textarea
+    id: why
+    attributes: {label: Why it is needed}
+    validations: {required: true}
+  - type: textarea
+    id: srs
+    attributes: {label: SRS text affected, description: "IDs and sections. docs/srs/ itself is never edited (R-1.3)."}
+    validations: {required: true}
+  - type: textarea
+    id: impact
+    attributes: {label: Who and what is affected}
+    validations: {required: true}
+  - type: checkboxes
+    id: approvals
+    attributes:
+      label: Approvals (all three, before any code)
+      options:
+        - label: Muhammad
+        - label: Mujtaba
+        - label: Huzaifa
