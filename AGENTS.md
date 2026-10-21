@@ -123,7 +123,7 @@ Run every command from the **repository root**. Tool versions and installation a
 
 ### 3.4 What CI checks on every PR
 
-1. Software: build, unit tests, coverage gate, clang-format, clang-tidy, include check.
+1. Software: build, unit tests, coverage gate (added by #24), clang-format, clang-tidy, include check (added by #5), and the GoogleTest download fallback.
 2. Hardware: Verilator and Verible lint, and every testbench in Verilator except those tagged `questa-only`.
 3. QuestaSim logs: for every module changed in `hw/rtl/` or `hw/tb/` (packages excepted), `hw/sim/logs/<module>.log` exists, its last line is `PASS`, and it is newer than the module's last change. "Newer" is checked exactly: the log header holds sha256 hashes of `hw/rtl/<module>.sv` and `hw/tb/tb_<module>.sv` as they were when QuestaSim ran, and they must match the files in the PR. Any edit to either file after the run makes the log stale. A module without a testbench fails this check.
 4. Milestone reports: a PR that closes a hardware milestone (M2, M4) carries the label **`hw-milestone`**. CI then requires `hw/reports/` to contain the `*.fit.summary` and `*.sta.summary` from a full Quartus build, with `Fitter Status : Successful` and no negative slack. Any reports present in other PRs are checked the same way.
@@ -142,7 +142,7 @@ Run every command from the **repository root**. Tool versions and installation a
 - **R-4.1.6** No heap allocation, file I/O or blocking calls inside a game tick except where the SRS requires them (for example the high-score save). `pollInput()` never blocks (SR-INP-02).
 - **R-4.1.7** No global mutable state outside the Game Engine. Games are pure state machines driven by `update(input)` (QA-04).
 - **R-4.1.8** Use `std::array` and fixed-width integers (`uint8_t`, `uint16_t`, `uint32_t`) for table fields, matching the SRS types.
-- **R-4.1.9** Layering (QA-01): Game → Arcade API → HAL → FPGA registers. No layer calls a layer above it or skips the layer below it. Only `sw/hal/` includes `register_map.hpp`. `tools/check_includes.py` enforces this.
+- **R-4.1.9** Layering (QA-01): Game → Arcade API → HAL → FPGA registers. No layer calls a layer above it or skips the layer below it. Only `sw/hal/` includes `register_map.hpp`. `tools/check_includes.py` enforces this (added by #5).
 - **R-4.1.10** Every public function and class has a short Doxygen comment (`///`) saying what it does and which SRS IDs it implements.
 - **R-4.1.11** Unit tests use GoogleTest, live in `sw/tests/<module>/`, and are named after the requirement where possible: `TEST(Snake, SR_GAM_03_SpeedRisesEveryFiveFood)`.
 
@@ -181,7 +181,7 @@ These interfaces connect people's work. **Changing them breaks someone else.** T
 
 | Interface | Defined in the SRS | Code (once merged) | Owner |
 |---|---|---|---|
-| **Register map** (offsets, bits, reset values, nibble order, palette packing) | `srs-mujtaba-drop1.md` §3.1.4; TBL-RegisterMap, TBL-Tilemap, TBL-TilePattern, TBL-Palette | `sw/hal/register_map.hpp` and `hw/rtl/arcade_regs_pkg.sv` (CI checks they match) | Mujtaba |
+| **Register map** (offsets, bits, reset values, nibble order, palette packing) | `srs-mujtaba-drop1.md` §3.1.4; TBL-RegisterMap, TBL-Tilemap, TBL-TilePattern, TBL-Palette | `sw/hal/register_map.hpp` and `hw/rtl/arcade_regs_pkg.sv` (a CI check that they match is added by #4) | Mujtaba |
 | **Arcade API** (`setTile`, `fillRect`, `drawText`, `clear`, `present`, `pollInput`, `playSound`, `setMute`, `loadTiles`, `frameCount`) | Glossary "Arcade API"; App. A Inputs and outputs; SR-FW-05, SR-FW-12 | `sw/include/arcade/arcade_api.hpp` | Muhammad |
 | **Game interface** (`init`, `update(input)`, `render(api)`, `isOver`, `score`) | SR-FW-03 | `sw/include/arcade/game.hpp` | Muhammad |
 | **Table schemas** (TBL-GameRegistry, TBL-HighScore and its CSV format, TBL-KeyBinding, TBL-SoundEffect) | `srs-muhammad.md` Chapter 5; `srs-huzaifa-rev3.md` §5 | `sw/include/arcade/types.hpp` and the table files under `sw/` | Muhammad (definitions), Huzaifa (sound data) |
