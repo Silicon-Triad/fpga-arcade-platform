@@ -1,5 +1,5 @@
 # Top-level build for the FPGA Arcade Platform C++ program (AGENTS.md section 3.1).
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.25)  # CMakePresets.json schema v6
 project(fpga_arcade VERSION 1.0.0 LANGUAGES CXX)
 
 # CON-08: C++17, no compiler extensions (R-4.1.1).

@@ -29,6 +29,11 @@ jobs:
             gcovr libgtest-dev libsdl2-dev g++-arm-linux-gnueabihf
       - name: Build, test, coverage, cross build, format, clang-tidy, include check
         run: tools/ci_local.sh --sw-only
+      - name: GoogleTest download fallback (as on a PC without libgtest-dev)
+        run: |
+          cmake -S . -B build/gtest-fetch -G Ninja -DCMAKE_DISABLE_FIND_PACKAGE_GTest=ON
+          cmake --build build/gtest-fetch
+          ctest --test-dir build/gtest-fetch --output-on-failure
 
   hw:
     name: hw (Verilator and Verible lint, Verilator testbenches)

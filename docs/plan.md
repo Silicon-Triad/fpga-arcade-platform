@@ -76,7 +76,7 @@ fpga-arcade-platform/
 ```
 
 Tooling (approved):
-- C++: CMake ≥ 3.20, GCC (PC) and `arm-linux-gnueabihf-g++` (board), GoogleTest via `FetchContent`, SDL2, `clang-format` and `clang-tidy`, `gcovr` for coverage.
+- C++: CMake ≥ 3.25, GCC (PC) and `arm-linux-gnueabihf-g++` (board), GoogleTest from `libgtest-dev` (downloaded by CMake if missing), SDL2, `clang-format` and `clang-tidy`, `gcovr` for coverage.
 - SystemVerilog: **Quartus Prime Lite 25.1 or later** with Platform Designer, and **Questa–Intel FPGA Starter Edition** (both free), installed on each member's own machine; the lab has no Quartus.
 - CI (decision B + E, no self-hosted runner, target under 5 minutes per PR):
   - every PR: Verilator `--lint-only` + Verible lint and format; every testbench built and run in Verilator, except those tagged `questa-only`;
