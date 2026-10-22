@@ -8,5 +8,6 @@ function(arcade_add_test name)
     gtest_discover_tests(${name})
 endfunction()
 
+add_subdirectory(arcade_api)
 add_subdirectory(smoke)
 add_subdirectory(input)
