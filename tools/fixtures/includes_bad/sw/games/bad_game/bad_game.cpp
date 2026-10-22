@@ -8,3 +8,5 @@
 #include <vector>
 // #include "hal/register_map.hpp"
 /* #include "hal/register_map.hpp" */
+#include "arcade/../engine/engine.hpp"  // escapes arcade/ with ..
+#include <stdint.h>                     // C form; use <cstdint>

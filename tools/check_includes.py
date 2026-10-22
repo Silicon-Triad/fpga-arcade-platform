@@ -24,9 +24,11 @@ FIXTURES = REPO / "tools" / "fixtures"
 SOURCE_SUFFIXES = {".cpp", ".cc", ".hpp", ".h"}
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s*([<"])([^>"]+)[>"]')
 
-# C++17 standard-library headers (ISO/IEC 14882:2017, [headers]), including the C ones.
+# C++17 standard-library headers (ISO/IEC 14882:2017, [headers]), including the <cxxx> forms
+# of the C headers. The <xxx.h> forms are not allowed; the message names the <cxxx> form.
 STD_HEADERS = {
-    "algorithm", "any", "array", "atomic", "bitset", "cassert", "cctype", "cerrno",
+    "algorithm", "any", "array", "atomic", "bitset", "cassert", "ccomplex", "cctype",
+    "cerrno", "ciso646", "cstdalign", "cstdbool", "ctgmath",
     "cfenv", "cfloat", "charconv", "chrono", "cinttypes", "climits", "clocale", "cmath",
     "codecvt", "complex", "condition_variable", "csetjmp", "csignal", "cstdarg",
     "cstddef", "cstdint", "cstdio", "cstdlib", "cstring", "ctime", "cuchar", "cwchar",
@@ -47,7 +49,11 @@ EXPECTED_BAD = {
     ("sw/games/bad_game/bad_game.cpp", "engine/engine.hpp"),
     ("sw/games/bad_game/bad_game.cpp", "SDL2/SDL.h"),
     ("sw/games/bad_game/bad_game.cpp", "../other_game/other.hpp"),
+    ("sw/games/bad_game/bad_game.cpp", "arcade/../engine/engine.hpp"),
+    ("sw/games/bad_game/bad_game.cpp", "stdint.h"),
+    ("sw/games/bad_game/after_string.cpp", "hal/register_map.hpp"),
 }
+TOKEN_RE = re.compile(r'//|/\*|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
 
 
 def includes(path):
@@ -59,14 +65,19 @@ def includes(path):
                 continue
             line = line.split("*/", 1)[1]
             in_comment = False
-        # Drop comments left to right, so "// see arcade/*.hpp" does not open a block.
+        # Drop comments left to right, keeping string and character literals, so neither
+        # "// see arcade/*.hpp" nor const char* s = "/*"; opens a block comment.
         code = ""
         while line:
-            m = re.search(r"//|/\*", line)
+            m = TOKEN_RE.search(line)
             if not m:
                 code += line
                 break
             code += line[: m.start()]
+            if m.group()[0] in "\"'":
+                code += m.group()
+                line = line[m.end():]
+                continue
             if m.group() == "//":
                 break
             end = line.find("*/", m.end())
@@ -79,17 +90,29 @@ def includes(path):
             yield n, m.group(1), m.group(2).strip()
 
 
-def game_include_ok(root, path, delim, header):
-    """QA-01: games see only the Arcade API, the standard library and their own files."""
+def game_include_error(root, path, delim, header):
+    """QA-01: games see only the Arcade API, the standard library and their own files.
+
+    Returns the reason a game may not include header, or None if it may."""
+    error = "games may include only arcade/*.hpp and the standard library"
+    if ".." in Path(header).parts and header.startswith("arcade/"):
+        return error + " (no '..' in arcade/ paths)"
     if header.startswith("arcade/") and header.endswith(".hpp"):
-        return True
+        return None
     if delim == "<":
-        return header in STD_HEADERS
+        if header in STD_HEADERS:
+            return None
+        c_form = "c" + header[:-2]
+        if header.endswith(".h") and c_form in STD_HEADERS:
+            return error + f" (use <{c_form}>)"
+        return error
     game_dir = root.joinpath(*path.relative_to(root).parts[:3])  # sw/games/<game>
     target = (path.parent / header).resolve()
     # Only a file that really exists in this game's folder; otherwise the compiler
     # finds it on the include path (sw/), i.e. in another layer.
-    return target.is_file() and target.is_relative_to(game_dir.resolve())
+    if target.is_file() and target.is_relative_to(game_dir.resolve()):
+        return None
+    return error
 
 
 def check(root):
@@ -105,9 +128,10 @@ def check(root):
         for n, delim, header in includes(path):
             if Path(header).name == "register_map.hpp" and not in_hal:
                 violations.append((rel, n, header, "only sw/hal/ may include register_map.hpp"))
-            elif in_game and not game_include_ok(root, path, delim, header):
-                violations.append(
-                    (rel, n, header, "games may include only arcade/*.hpp and the standard library"))
+            elif in_game:
+                error = game_include_error(root, path, delim, header)
+                if error:
+                    violations.append((rel, n, header, error))
     return violations
 
 
