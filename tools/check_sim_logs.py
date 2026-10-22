@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Check committed QuestaSim logs (AGENTS.md section 3.4, item 3).
 
-For every hardware module changed against the base branch (or every module with --all):
+A module is affected when any file its testbench depends on (tools/sim_deps.py: its
+testbench, itself, every package and every module it instantiates) changed against the
+base branch; with --all every module is checked. For each affected module:
   - hw/sim/logs/<module>.log exists,
   - its last line is exactly PASS,
-  - the sha256 hashes in its header match the current hw/rtl/<module>.sv and
-    hw/tb/tb_<module>.sv, i.e. the log was made from the sources as they are now,
-    so it is newer than the module's last change.
-Packages (*_pkg.sv) have no testbench of their own and are not checked here.
+  - its header has a "# dep: <path> sha256=<hash>" line for every current dependency,
+    and each hash matches the file now, i.e. the log was made from the sources as they
+    are, so it is newer than the last change to the module or anything it uses.
+Packages (*_pkg.sv) have no testbench of their own; a package change affects every module.
 
 Usage: tools/check_sim_logs.py [--base REF | --all]
 """
@@ -17,6 +19,8 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+from sim_deps import deps, display
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -32,23 +36,12 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes().replace(b"\r", b"")).hexdigest()
 
 
-def module_of(rel):
-    """Map a changed path to its module name, or None if it is not a module or testbench."""
-    p = Path(rel)
-    if p.suffix != ".sv":
-        return None
-    if p.parent == Path("hw/rtl") and not p.stem.endswith("_pkg"):
-        return p.stem
-    if p.parent == Path("hw/tb") and p.stem.startswith("tb_"):
-        return p.stem[3:]
-    return None
-
-
-def changed_modules(base):
+def changed_files(base):
+    """Repo-relative paths under hw/rtl and hw/tb that differ from the merge base."""
     mb = git("merge-base", base, "HEAD").strip()
     paths = git("diff", "--name-only", mb, "--", "hw/rtl", "hw/tb").split()
     paths += git("ls-files", "--others", "--exclude-standard", "--", "hw/rtl", "hw/tb").split()
-    return sorted({m for m in map(module_of, paths) if m})
+    return set(paths)
 
 
 def all_modules(rtl_dir, tb_dir):
@@ -69,12 +62,13 @@ def check(mod, rtl_dir, tb_dir, log_dir):
     lines = [ln for ln in text.splitlines() if ln.strip()]
     if not lines or lines[-1].strip() != "PASS":
         return f"log does not end in PASS (last line: {lines[-1] if lines else '<empty>'!r})"
-    for kind, path in (("rtl", rtl), ("tb", tb)):
-        m = re.search(rf"^# {kind}: \S+ sha256=(\w+)$", text, re.M)
-        if not m:
-            return f"log header has no {kind} hash; regenerate it with make -C hw/sim questa"
-        if m.group(1) != sha256(path):
-            return f"log is stale: {path.name} changed after the log was made; re-run QuestaSim"
+    logged = dict(re.findall(r"^# dep: (\S+) sha256=(\w+)$", text, re.M))
+    for path in deps(mod, rtl_dir, tb_dir):
+        name = display(path)
+        if name not in logged:
+            return f"log is stale: it does not cover {name}; re-run QuestaSim"
+        if logged[name] != sha256(path):
+            return f"log is stale: {name} changed after the log was made; re-run QuestaSim"
     return None
 
 
@@ -92,10 +86,13 @@ def main():
     else:
         base = a.base or "origin/main"
         try:
-            mods = changed_modules(base)
+            changed = changed_files(base)
         except subprocess.CalledProcessError:
             print(f"check_sim_logs: base {base!r} not found; checking all modules")
             mods = all_modules(a.rtl_dir, a.tb_dir)
+        else:
+            mods = [m for m in all_modules(a.rtl_dir, a.tb_dir)
+                    if changed & {display(p) for p in deps(m, a.rtl_dir, a.tb_dir)}]
 
     if not mods:
         print("check_sim_logs: no hardware modules to check")

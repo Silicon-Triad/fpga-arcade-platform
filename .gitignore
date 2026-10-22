@@ -1,114 +1,90 @@
+# ---- C++ ----
 # Prerequisites
 *.d
 
-# Compiled Object files
+# Compiled object files
 *.slo
 *.lo
 *.o
 *.obj
 
-# Precompiled Headers
+# Precompiled headers
 *.gch
 *.pch
 
-# Linker files
+# Linker and debugger files
 *.ilk
-
-# Debugger Files
 *.pdb
+*.dwo
 
-# Compiled Dynamic libraries
+# Compiled dynamic and static libraries
 *.so
+*.so.*
 *.dylib
 *.dll
-*.so.*
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
 *.lai
 *.la
 *.a
 *.lib
+
+# Fortran module files
+*.mod
+*.smod
 
 # Executables
 *.exe
 *.out
 *.app
 
-# Build directories
+# Build trees (we build out of tree, in build/)
 build/
 Build/
 build-*/
+CMakeUserPresets.json
 
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-install_manifest.txt
-compile_commands.json
+# CMake files from an accidental in-source build at the repo root
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/Makefile
+/install_manifest.txt
+/compile_commands.json
 
-# Temporary files
+# Test output and caches
+Testing/
+.cache/
+vcpkg_installed/
+
+# Editors and temporary files
+.vscode/
 *.tmp
-*.log
 *.bak
 *.swp
 
-# vcpkg
-vcpkg_installed/
+# Logs (committed QuestaSim logs are the exception)
+*.log
+!hw/sim/logs/*.log
 
-# debug information files
-*.dwo
-
-# test output & cache
-Testing/
-.cache/
-
-# Quartus
-build/
-db/
-incremental_db/
-output_files/
-simulation/
-*.qws
-*.rpt
-*.summary
-*.smsg
-*.sof
-*.rbf
-*.vcd
-*.fst
-obj_dir/
-.vscode/
-
-# Build trees
-build/
-CMakeUserPresets.json
-
-# Quartus / Platform Designer generated output (summaries are copied to hw/reports/)
+# ---- Quartus / Platform Designer (summaries are copied to hw/reports/) ----
 db/
 incremental_db/
 output_files/
 qdb/
 tmp-clearbox/
-*.qws
-*.rpt
-*.summary
-!hw/reports/*.summary
 hw/ip/**/synthesis/
 hw/ip/**/simulation/
+*.qws
+*.rpt
+*.smsg
+*.sof
+*.rbf
+*.summary
+!hw/reports/*.summary
 
-# Simulation
+# ---- Simulation ----
 obj_dir/
 work/
 transcript
 *.wlf
 *.vcd
 *.fst
-!hw/sim/logs/*.log
-
-# Our own Makefiles are source (the C++ template above ignores CMake-generated ones)
-!hw/sim/Makefile

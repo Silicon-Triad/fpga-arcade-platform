@@ -19,7 +19,7 @@ sudo apt install -y build-essential cmake ninja-build git python3 \
 
 | Tool | Minimum | Used for |
 |---|---|---|
-| CMake | 3.20 | build presets |
+| CMake | 3.25 (Ubuntu 24.04 ships 3.28) | build presets (schema v6) |
 | GCC | 13 (Ubuntu 24.04 default) | PC build |
 | `arm-linux-gnueabihf-g++` | Ubuntu 24.04 package | board build (HPS is ARM Cortex-A9, hard float) |
 | SDL2 | 2.0 | PC backend (SR-FW-06) |

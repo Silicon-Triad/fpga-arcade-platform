@@ -18,11 +18,11 @@ if(ARCADE_BUILD_TESTS)
     if(NOT GTest_FOUND)
         include(FetchContent)
         FetchContent_Declare(googletest
-            URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz)
+            URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
         set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
         set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-        FetchContent_MakeAvailable(googletest)
-        add_library(GTest::gtest_main ALIAS gtest_main)
+        FetchContent_MakeAvailable(googletest)  # defines GTest::gtest_main itself
     endif()
     include(GoogleTest)
     add_subdirectory(tests)
