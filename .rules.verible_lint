@@ -1,0 +1,2 @@
+# Disable strict parameter name style to allow ALL_CAPS conventions
+-parameter-name-style

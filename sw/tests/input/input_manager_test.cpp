@@ -426,9 +426,9 @@ TEST_F(InputManagerReadyTest, SR_INP_08_HeldStateTracked) {
     EXPECT_FALSE(im.isPressed(KEY_LEFT));
     EXPECT_TRUE(im.isPressed(KEY_SPACE));
 }
-
 TEST_F(InputManagerReadyTest, SR_INP_08_EveryKeyCodeHasAState) {
     std::vector<input_event> presses;
+    presses.reserve(KEY_CNT);
     for (std::uint16_t code = 0; code < KEY_CNT; ++code) {
         presses.push_back(keyEvent(code, 1));
     }
@@ -438,7 +438,6 @@ TEST_F(InputManagerReadyTest, SR_INP_08_EveryKeyCodeHasAState) {
         EXPECT_TRUE(im.isPressed(code)) << code;
     }
 }
-
 TEST_F(InputManagerReadyTest, SR_INP_08_OutOfRangeCodeIsIgnored) {
     reads().push_back({keyEvent(KEY_CNT, 1), keyEvent(0xFFFF, 1)});
     EXPECT_TRUE(pollAll(im).empty());
