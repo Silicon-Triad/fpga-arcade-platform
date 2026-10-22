@@ -7,6 +7,10 @@ if(ARCADE_WERROR)
     target_compile_options(arcade_warnings INTERFACE -Werror)
 endif()
 
+# Frozen public headers: Arcade API, engine API, game interface, shared types (issue #3).
+add_library(arcade_api INTERFACE)
+target_include_directories(arcade_api INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 if(ARCADE_COVERAGE)
     add_compile_options(--coverage -O0)
     add_link_options(--coverage)
