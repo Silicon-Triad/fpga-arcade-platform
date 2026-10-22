@@ -56,6 +56,9 @@ class FakeEvdevSys final : public EvdevSys {
     struct Device {
         KeyBits bits{};
         bool grabFails = false;
+        bool openFails = false;       // open() returns -1
+        bool keyBitsFails = false;    // EVIOCGBIT ioctl fails
+        int errorWhenEmpty = EAGAIN;  // errno once the queued reads are used up
         std::deque<std::vector<input_event>> reads;
     };
 
@@ -77,7 +80,7 @@ class FakeEvdevSys final : public EvdevSys {
     }
     int open(const std::string& path, int flags) override {
         openFlags.push_back(flags);
-        if (devices.count(path) == 0) {
+        if (devices.count(path) == 0 || devices.at(path).openFails) {
             return -1;
         }
         const int fd = nextFd_++;
@@ -86,8 +89,9 @@ class FakeEvdevSys final : public EvdevSys {
     }
     void close(int fd) override { open_.erase(fd); }
     bool keyBits(int fd, KeyBits& bits) override {
-        bits = devices.at(open_.at(fd)).bits;
-        return true;
+        const Device& d = devices.at(open_.at(fd));
+        bits = d.bits;
+        return !d.keyBitsFails;
     }
     bool grab(int fd) override {
         if (devices.at(open_.at(fd)).grabFails) {
@@ -98,9 +102,10 @@ class FakeEvdevSys final : public EvdevSys {
     }
     ssize_t read(int fd, void* buf, std::size_t len, int& err) override {
         ++readCalls;
-        auto& reads = devices.at(open_.at(fd)).reads;
+        Device& d = devices.at(open_.at(fd));
+        auto& reads = d.reads;
         if (reads.empty()) {
-            err = EAGAIN;
+            err = d.errorWhenEmpty;
             return -1;
         }
         std::vector<input_event> batch = reads.front();
@@ -203,13 +208,32 @@ TEST_F(InputManagerTest, SR_INP_01_OverlongEventNumberIsIgnored) {
     EXPECT_TRUE(sys.openFlags.empty());
 }
 
-TEST_F(InputManagerTest, StartTwiceClosesThePreviousKeyboard) {
+TEST_F(InputManagerTest, SR_INP_01_StartTwiceClosesThePreviousKeyboard) {
     sys.addDevice("event0", keyboardBits());
     InputManager im(sys);
     ASSERT_TRUE(im.start());
     ASSERT_TRUE(im.start());
     EXPECT_EQ(sys.open_.size(), 1U);  // the first fd was closed, not leaked
     EXPECT_EQ(im.devicePath(), "/dev/input/event0");
+}
+
+TEST_F(InputManagerTest, SR_INP_01_DeviceThatCannotBeOpenedIsSkipped) {
+    sys.addDevice("event0", keyboardBits());
+    sys.addDevice("event1", keyboardBits());
+    sys.dev("event0").openFails = true;
+    InputManager im(sys);
+    ASSERT_TRUE(im.start());
+    EXPECT_EQ(im.devicePath(), "/dev/input/event1");
+}
+
+TEST_F(InputManagerTest, SR_INP_01_DeviceWhoseKeyBitsCannotBeReadIsSkipped) {
+    sys.addDevice("event0", keyboardBits());
+    sys.addDevice("event1", keyboardBits());
+    sys.dev("event0").keyBitsFails = true;
+    InputManager im(sys);
+    ASSERT_TRUE(im.start());
+    EXPECT_EQ(im.devicePath(), "/dev/input/event1");
+    EXPECT_EQ(sys.open_.size(), 1U);  // event0 was closed again
 }
 
 // --- SR-INP-02 and SR-INP-03: open mode and grab ---------------------------------------------
@@ -320,6 +344,18 @@ TEST_F(InputManagerReadyTest, SR_INP_04_LaterEventsComeNextTick) {
     EXPECT_TRUE(isUp(out[0], KEY_A));
 }
 
+TEST_F(InputManagerReadyTest, SR_INP_04_OtherReadErrorEndsTheTick) {
+    // ENODEV (keyboard removed) is only handled by #22; until then it must end the tick quietly,
+    // keeping the events already read.
+    reads().push_back({keyEvent(KEY_A, 1)});
+    sys.dev("event0").errorWhenEmpty = ENODEV;
+    const auto out = pollAll(im);
+    ASSERT_EQ(out.size(), 1U);
+    EXPECT_TRUE(isDown(out[0], KEY_A));
+    EXPECT_TRUE(pollAll(im).empty());
+    EXPECT_TRUE(im.isPressed(KEY_A));
+}
+
 // --- SR-INP-05 to SR-INP-07: event conversion ----------------------------------------------
 
 TEST_F(InputManagerReadyTest, SR_INP_05_Value1GivesKeyDown) {
@@ -359,7 +395,7 @@ TEST_F(InputManagerReadyTest, SR_INP_07_OnlyRepeatsInATickGiveNothing) {
     EXPECT_TRUE(im.isPressed(KEY_RIGHT));
 }
 
-TEST_F(InputManagerReadyTest, NonKeyEventsAreIgnored) {
+TEST_F(InputManagerReadyTest, SR_INP_04_NonKeyEventsAreIgnored) {
     input_event msc{};
     msc.type = EV_MSC;
     msc.code = MSC_SCAN;

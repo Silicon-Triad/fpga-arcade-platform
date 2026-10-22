@@ -100,7 +100,8 @@ std::size_t InputManager::readBatch() {
     const ssize_t bytes = sys_.read(fd_, buf_.data(), sizeof(buf_), err);
     if (bytes <= 0) {
         // SR-INP-04: EAGAIN means the queue is empty for this tick. Other errors also stop the
-        // tick; ENODEV (keyboard removed, SR-INP-12) is handled by issue #22.
+        // tick and leave `err` unused for now.
+        // TODO(#22): on ENODEV enter the Disconnected state (SR-INP-12 to SR-INP-14).
         return 0;
     }
     // evdev returns whole events only.
