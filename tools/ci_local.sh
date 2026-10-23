@@ -46,7 +46,8 @@ if [[ $do_sw == 1 ]]; then
         echo "not yet implemented (issue #5)"
     fi
 fi
-
+step "register map parity check (SRS §3.1.4)"
+python3 tools/check_register_map.py
 if [[ $do_hw == 1 ]]; then
     step "hw: lint"
     make -s -C hw/sim lint

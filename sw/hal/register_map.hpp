@@ -1,45 +1,83 @@
-// FROZEN INTERFACE
-#ifndef ARCADE_REGISTER_MAP_HPP
-#define ARCADE_REGISTER_MAP_HPP
+// FROZEN INTERFACE: see AGENTS.md section 6. Do not change without an approved issue.
+#pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 namespace arcade::hal {
 
-/// SRS §3.1.4, SR-HAL-01: Base physical address & window size of LW HPS-to-FPGA bridge
-constexpr uintptr_t kBridgeBaseAddress = 0xFF200000;
-constexpr size_t kBridgeWindowSize = 0x200000;  // 2 MB
+// Bridge configuration (SRS §3.1.4, SR-HAL-01, App. A BRIDGE_WINDOW_SIZE)
+constexpr std::uintptr_t kBridgeBaseAddress = 0xFF200000;
+constexpr std::size_t kBridgeWindowSize = 0x200000;  // 2 MB
 
-/// SRS §3.1.4, TBL-RegisterMap: Register offsets within LW bridge window
-constexpr uintptr_t kOffsetTilemapBank0 = 0x0000;    // 12,288 B (128x96)
-constexpr uintptr_t kOffsetTilemapBank1 = 0x3000;    // 12,288 B (128x96)
-constexpr uintptr_t kOffsetTilePatternRam = 0x6000;  // 8,192 B (256 tiles, 4bpp)
-constexpr uintptr_t kOffsetPaletteBase = 0x8000;     // 64 B (16 entries x 32-bit)
-constexpr uintptr_t kOffsetControlReg = 0x8040;      // 32-bit R/W
-constexpr uintptr_t kOffsetStatusReg = 0x8044;       // 32-bit R
-constexpr uintptr_t kOffsetFrameCounter = 0x8048;    // 32-bit R
-constexpr uintptr_t kOffsetSwapReqFront = 0x804C;    // 1-bit W (SwapReq) / 1-bit R (FrontBank)
-constexpr uintptr_t kOffsetIdVersion = 0x8050;       // 32-bit R
-constexpr uintptr_t kOffsetToneFrequency = 0x8054;   // 16-bit R/W
-constexpr uintptr_t kOffsetToneDuration = 0x8058;    // 16-bit R/W
-constexpr uintptr_t kOffsetAudioControl = 0x805C;    // 32-bit R/W
+// Register Offsets (SRS §3.1.4, TBL-RegisterMap)
+constexpr std::uint32_t kOffsetIdVersionReg = 0x0000;
+constexpr std::uint32_t kOffsetControlReg = 0x0004;
+constexpr std::uint32_t kOffsetStatusReg = 0x0008;
+constexpr std::uint32_t kOffsetAudioControlReg = 0x000C;
+constexpr std::uint32_t kOffsetAudioStatusReg = 0x0010;
+constexpr std::uint32_t kOffsetAudioDataReg = 0x0014;
+constexpr std::uint32_t kOffsetSwapReqFrontBankReg = 0x8000;
+constexpr std::uint32_t kOffsetTilemapBaseReg = 0x8010;
+constexpr std::uint32_t kOffsetTilePatternBaseReg = 0x8020;
+constexpr std::uint32_t kOffsetPaletteBaseReg = 0x8030;
+constexpr std::uint32_t kOffsetTimerReg = 0x8050;
+constexpr std::uint32_t kOffsetIrqMaskReg = 0x805C;
 
-/// SRS §3.1.4, SR-HAL-09: Expected magic ID value
-constexpr uint32_t kHalIdMagic = 0xA2CADE01;
+// Reset Values (SRS §3.1.4, R-4.2.6)
+constexpr std::uint32_t kResetIdVersionReg = 0xA2CADE01;
+constexpr std::uint32_t kResetControlReg = 0x00000000;
+constexpr std::uint32_t kResetStatusReg = 0x00000000;
+constexpr std::uint32_t kResetAudioControlReg = 0x00000000;
+constexpr std::uint32_t kResetAudioStatusReg = 0x00000000;
+constexpr std::uint32_t kResetAudioDataReg = 0x00000000;
+constexpr std::uint32_t kResetSwapReqFrontBankReg = 0x00000000;
+constexpr std::uint32_t kResetTilemapBaseReg = 0x00000000;
+constexpr std::uint32_t kResetTilePatternBaseReg = 0x00000000;
+constexpr std::uint32_t kResetPaletteBaseReg = 0x00000000;
+constexpr std::uint32_t kResetTimerReg = 0x00000000;
+constexpr std::uint32_t kResetIrqMaskReg = 0x00000000;
 
-/// SRS §3.1.4, Control Register bits (0x8040)
-constexpr uint32_t kControlBitResetTilemap = (1U << 1);
-constexpr uint32_t kControlBitDisplayEnable = (1U << 2);
+// Magic Constant (HAL_ID_MAGIC)
+constexpr std::uint32_t kHalIdMagic = 0xA2CADE01;
 
-/// SRS §3.1.4, Status Register bits (0x8044)
-constexpr uint32_t kStatusBitVsyncFlag = (1U << 0);
-constexpr uint32_t kStatusBitFpgaReady = (1U << 1);
-constexpr uint32_t kStatusBitSwapPending = (1U << 2);
+// Tilemap Constants (TBL-Tilemap)
+constexpr std::size_t kGridCols = 128;
+constexpr std::size_t kGridRows = 96;
+constexpr std::size_t kTilemapBankSize = 12288;
 
-/// SRS §3.1.4, Audio Control Register bits (0x805C)
-constexpr uint32_t kAudioControlBitAudioEnable = (1U << 0);
-constexpr uint32_t kAudioControlBitMute = (1U << 1);
+// Tile Pattern Constants (TBL-TilePattern)
+constexpr std::size_t kTilePatternCount = 256;
+constexpr std::size_t kBytesPerTilePattern = 32;
+constexpr std::size_t kTilePatternRamSize = 8192;
+
+// Palette Constants (TBL-Palette)
+constexpr std::size_t kPaletteSize = 16;
+constexpr std::size_t kBytesPerPaletteEntry = 4;
+constexpr std::uint32_t kPaletteRedShift = 16;
+constexpr std::uint32_t kPaletteGreenShift = 8;
+constexpr std::uint32_t kPaletteBlueShift = 0;
+constexpr std::uint32_t kPaletteMask = 0x00FFFFFF;
+
+// Pixel Packing & Nibble Order
+constexpr std::size_t kPixelsPerByte = 2;
+constexpr std::size_t kLeftPixelNibbleShift = 4;
+
+// Control Bits
+constexpr std::uint32_t kBitControlEnable = 0;
+constexpr std::uint32_t kBitControlReset = 1;
+
+// Status Bits
+constexpr std::uint32_t kBitStatusFpgaReady = 0;
+constexpr std::uint32_t kBitStatusVblank = 1;
+constexpr std::uint32_t kBitStatusAudioFull = 2;
+
+// Audio Control Bits
+constexpr std::uint32_t kBitAudioControlEnable = 0;
+constexpr std::uint32_t kBitAudioControlIrqEn = 1;
+
+// Swap Request / Front Bank Bits (§3.1.4)
+constexpr std::uint32_t kBitSwapRequest = 0;  // write 1 = Swap Request
+constexpr std::uint32_t kBitFrontBank = 0;    // read = Front Bank
 
 }  // namespace arcade::hal
-
-#endif  // ARCADE_REGISTER_MAP_HPP
