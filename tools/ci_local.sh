@@ -48,6 +48,7 @@ if [[ $do_sw == 1 ]]; then
 fi
 step "register map parity check (SRS §3.1.4)"
 python3 tools/check_register_map.py
+python3 tools/check_register_map.py --selftest
 if [[ $do_hw == 1 ]]; then
     step "hw: lint"
     make -s -C hw/sim lint
