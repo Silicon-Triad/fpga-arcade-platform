@@ -85,13 +85,15 @@ class InputManager {
     ///
     /// Hot-plug: if `read()` returns `ENODEV`, the keyboard is closed, the state becomes
     /// Disconnected (SR-INP-12), every key is set to released (SR-INP-13) and KeyboardLost is
-    /// passed to `sink` after the events already read, in the same call (SR-INP-14). In the
-    /// Disconnected and NoKeyboard states, a `/dev/input` change reported by inotify starts a
-    /// new scan as in SR-INP-01; a keyboard found enters Ready and gives KeyboardFound
-    /// (SR-INP-15). Its keys are read from the next call on.
+    /// passed to `sink` after the events already read, in the same call (SR-INP-14). inotify
+    /// is read in every state, and the `eventN` devices it reports are remembered. In the
+    /// Disconnected and NoKeyboard states those devices, and only those, are checked as in
+    /// SR-INP-01; a keyboard found enters Ready and gives KeyboardFound (SR-INP-15). Its keys
+    /// are read from the next call on. Other devices are not opened again, because opening some
+    /// of them can take hundreds of milliseconds (sw/input/README.md).
     ///
-    /// Never blocks (SR-INP-02). Allocates only while scanning for a new keyboard after a
-    /// hot-plug change (SR-INP-15), never while a keyboard is Ready.
+    /// Never blocks (SR-INP-02). Allocates only while checking devices after a hot-plug change
+    /// (SR-INP-15), never while a keyboard is Ready.
     template <typename Sink>
     void poll(Sink&& sink);
 
@@ -111,19 +113,50 @@ class InputManager {
         Error,       ///< Any other error: ends the tick, the keyboard is kept.
     };
 
+    /// Most devices remembered between checks. Not an SRS value: if more change before the
+    /// next check, or the kernel drops inotify events, the next check is a full scan instead.
+    static constexpr std::size_t kMaxPendingDevices = 16;
+
+    /// `eventN` devices reported by inotify and not yet checked (SR-INP-15). Fixed size, so
+    /// reading inotify never allocates.
+    class PendingDevices final : public DirChangeSink {
+      public:
+        void entryChanged(const char* name) override;
+        void eventsLost() override { fullScan_ = true; }
+
+        /// Next check scans the whole directory (the watch was missing, events were lost).
+        void requestFullScan() { fullScan_ = true; }
+        bool empty() const { return !fullScan_ && count_ == 0; }
+        bool fullScan() const { return fullScan_; }
+        /// Event numbers in ascending order (SR-INP-01 order).
+        const long* begin() const { return numbers_.data(); }
+        const long* end() const { return numbers_.data() + count_; }
+        void clear() {
+            count_ = 0;
+            fullScan_ = false;
+        }
+
+      private:
+        std::array<long, kMaxPendingDevices> numbers_{};
+        std::size_t count_ = 0;
+        bool fullScan_ = false;
+    };
+
     bool scan();
+    bool tryDevice(const std::string& name);
+    bool checkPending();
     bool isKeyboard(int fd);
     std::size_t readBatch(ReadEnd& end);
     bool translate(const input_event& raw, KeyEvent& out);
     void enterDisconnected();
-    bool watchReportsChange();
+    void readWatch();
     void closeKeyboard();
 
     EvdevSys& sys_;
     InputState state_ = InputState::Scanning;
     int fd_ = -1;
-    int watchFd_ = -1;            // inotify on kInputDir, or -1 (SR-INP-15)
-    bool rescanPending_ = false;  // scan on the next check even without an inotify event
+    int watchFd_ = -1;  // inotify on kInputDir, or -1 (SR-INP-15)
+    PendingDevices pending_;
     std::string path_;
     std::array<input_event, kReadBatch> buf_{};
     std::array<bool, KEY_CNT> pressed_{};  // SR-INP-08: one entry per key code
@@ -147,12 +180,12 @@ void InputManager::poll(Sink&& sink) {
             sink(KeyEvent{KeyEventType::KeyboardLost, 0});  // SR-INP-14: same tick
         }
     }
-    // SR-INP-15: read inotify in every state, so changes seen while Ready do not pile up.
-    const bool changed = watchReportsChange();
+    // SR-INP-15: read inotify in every state. Devices that appear while Ready are kept, so a
+    // second keyboard, or one plugged in again before ENODEV was read, is found at once.
+    readWatch();
     if ((state_ == InputState::Disconnected || state_ == InputState::NoKeyboard) &&
-        (changed || rescanPending_)) {
-        rescanPending_ = false;
-        if (scan()) {
+        !pending_.empty()) {
+        if (checkPending()) {
             state_ = InputState::Ready;
             sink(KeyEvent{KeyEventType::KeyboardFound, 0});  // SR-INP-15
         }

@@ -51,8 +51,8 @@ KeyBits keyboardBits() {
 KeyBits mouseBits() { return bitsFor({BTN_LEFT, BTN_RIGHT, BTN_MIDDLE}); }
 
 /// Recorded /dev/input: devices with key capabilities and queued reads. Each queued read is a
-/// batch of events returned by one read() call; an empty queue gives EAGAIN. inotify is a count
-/// of queued directory events (SR-INP-15).
+/// batch of events returned by one read() call; an empty queue gives EAGAIN. inotify is a queue
+/// of entry names (SR-INP-15).
 class FakeEvdevSys final : public EvdevSys {
   public:
     struct Device {
@@ -70,14 +70,16 @@ class FakeEvdevSys final : public EvdevSys {
     std::vector<int> openFlags;             // flags of every open() call
     std::vector<std::string> grabbed;       // paths grabbed successfully
     std::vector<int> closed;                // every fd passed to close(), in order
+    std::map<std::string, int> opens;       // path -> number of open() calls
     int readCalls = 0;
     int listDirCalls = 0;
 
     // inotify (SR-INP-15)
-    bool watchFails = false;           // watchDir() returns -1
-    std::vector<std::string> watched;  // every dir passed to watchDir()
-    int watchFd = -1;                  // last fd returned by watchDir()
-    int dirEvents = 0;                 // queued inotify events; dirChanged() consumes them all
+    bool watchFails = false;            // watchDir() returns -1
+    std::vector<std::string> watched;   // every dir passed to watchDir()
+    int watchFd = -1;                   // last fd returned by watchDir()
+    std::deque<std::string> dirEvents;  // queued inotify entry names; readDirChanges() takes all
+    bool eventsLost = false;            // next readDirChanges() reports IN_Q_OVERFLOW
 
     void addDevice(const std::string& name, const KeyBits& bits) {
         names.push_back(name);
@@ -93,10 +95,10 @@ class FakeEvdevSys final : public EvdevSys {
         Device fresh;
         fresh.bits = bits;
         devices["/dev/input/" + name] = fresh;
-        ++dirEvents;
+        dirEvents.push_back(name);
     }
-    /// The device is removed: reads on its open fd give ENODEV and its node is gone. The kernel
-    /// reports this as IN_DELETE, which the Input Manager does not watch.
+    /// The device is removed: reads on its open fd give ENODEV and its node is gone. Removal is
+    /// IN_DELETE, which the Input Manager does not watch, so no inotify event is queued.
     void unplug(const std::string& name) {
         Device& d = dev(name);
         d.reads.clear();
@@ -111,6 +113,7 @@ class FakeEvdevSys final : public EvdevSys {
     }
     int open(const std::string& path, int flags) override {
         openFlags.push_back(flags);
+        ++opens[path];
         if (devices.count(path) == 0 || devices.at(path).openFails) {
             return -1;
         }
@@ -163,11 +166,17 @@ class FakeEvdevSys final : public EvdevSys {
         watchFd = nextFd_++;
         return watchFd;
     }
-    bool dirChanged(int fd) override {
+    void readDirChanges(int fd, DirChangeSink& sink) override {
         EXPECT_EQ(fd, watchFd);
-        const bool changed = dirEvents > 0;
-        dirEvents = 0;
-        return changed;
+        if (eventsLost) {
+            eventsLost = false;
+            sink.eventsLost();
+        }
+        while (!dirEvents.empty()) {
+            const std::string name = dirEvents.front();
+            dirEvents.pop_front();
+            sink.entryChanged(name.c_str());
+        }
     }
 
   private:
@@ -673,7 +682,7 @@ TEST_F(InputManagerTest, SR_INP_15_NodeNotYetOpenableIsPickedUpOnAttributeChange
     EXPECT_TRUE(pollAll(im).empty());
     EXPECT_EQ(im.state(), InputState::NoKeyboard);
     sys.dev("event1").openFails = false;
-    ++sys.dirEvents;  // IN_ATTRIB
+    sys.dirEvents.emplace_back("event1");  // IN_ATTRIB
     const auto out = pollAll(im);
     ASSERT_EQ(out.size(), 1U);
     EXPECT_TRUE(isFound(out[0]));
@@ -685,7 +694,7 @@ TEST_F(InputManagerReadyTest, SR_INP_15_ChangesWhileReadyDoNotRescan) {
     EXPECT_TRUE(pollAll(im).empty());
     EXPECT_EQ(sys.listDirCalls, lists);
     EXPECT_EQ(im.devicePath(), "/dev/input/event0");
-    EXPECT_EQ(sys.dirEvents, 0);  // but the inotify queue is still drained
+    EXPECT_TRUE(sys.dirEvents.empty());  // but the inotify queue is still drained
 }
 
 TEST_F(InputManagerReadyTest, SR_INP_15_OtherKeyboardAlreadyPresentIsTakenAtOnce) {
@@ -735,6 +744,100 @@ TEST_F(InputManagerReadyTest, SR_INP_12_15_TwentyUnplugCyclesLeakNothing) {
         EXPECT_EQ(im.devicePath(), "/dev/input/" + next);
         EXPECT_EQ(sys.open_.size(), 1U);
     }
+}
+
+TEST_F(InputManagerTest, SR_INP_15_OnlyReportedDevicesAreOpened) {
+    // Opening some devices is slow (a laptop's event11 took 650 ms per open()). After start-up,
+    // a hot-plug change opens only the device inotify names, never the others again.
+    sys.addDevice("event0", mouseBits());
+    sys.addDevice("event11", mouseBits());
+    InputManager im(sys);
+    ASSERT_FALSE(im.start());
+    ASSERT_EQ(sys.opens["/dev/input/event11"], 1);
+    const int lists = sys.listDirCalls;
+    sys.plugIn("event21", keyboardBits());
+    const auto out = pollAll(im);
+    ASSERT_EQ(out.size(), 1U);
+    EXPECT_TRUE(isFound(out[0]));
+    EXPECT_EQ(sys.opens["/dev/input/event0"], 1);
+    EXPECT_EQ(sys.opens["/dev/input/event11"], 1);
+    EXPECT_EQ(sys.listDirCalls, lists);
+}
+
+TEST_F(InputManagerReadyTest, SR_INP_15_UnplugOpensNoOtherDevice) {
+    sys.addDevice("event11", mouseBits());  // already there, not reported again
+    sys.unplug("event0");
+    const int lists = sys.listDirCalls;
+    pollAll(im);
+    EXPECT_EQ(im.state(), InputState::Disconnected);
+    EXPECT_EQ(sys.opens.count("/dev/input/event11"), 0U);
+    EXPECT_EQ(sys.listDirCalls, lists);
+}
+
+TEST_F(InputManagerTest, SR_INP_15_EntriesThatAreNotEventDevicesAreIgnored) {
+    InputManager im(sys);
+    ASSERT_FALSE(im.start());
+    sys.addDevice("event1", keyboardBits());  // its name is not "event1" below, so not tried
+    for (const char* name :
+         {"by-id", "by-path", "mouse0", "mice", "event", "event01", "eventX", "event1234567890"}) {
+        sys.dirEvents.emplace_back(name);
+    }
+    EXPECT_TRUE(pollAll(im).empty());
+    EXPECT_EQ(im.state(), InputState::NoKeyboard);
+    EXPECT_TRUE(sys.opens.empty() || sys.opens.count("/dev/input/event1") == 0);
+}
+
+TEST_F(InputManagerTest, SR_INP_15_ReportedDevicesAreTriedInEventNumberOrder) {
+    InputManager im(sys);
+    ASSERT_FALSE(im.start());
+    sys.plugIn("event12", keyboardBits());
+    sys.plugIn("event3", keyboardBits());
+    sys.dirEvents.emplace_back("event12");  // reported twice: tried once
+    const auto out = pollAll(im);
+    ASSERT_EQ(out.size(), 1U);
+    EXPECT_EQ(im.devicePath(), "/dev/input/event3");  // SR-INP-01: lowest number first
+    EXPECT_EQ(sys.opens.count("/dev/input/event12"), 0U);
+}
+
+TEST_F(InputManagerTest, SR_INP_15_LostInotifyEventsGiveOneFullScan) {
+    InputManager im(sys);
+    ASSERT_FALSE(im.start());
+    sys.addDevice("event4", keyboardBits());  // its event was among those lost
+    sys.eventsLost = true;
+    const int lists = sys.listDirCalls;
+    const auto out = pollAll(im);
+    ASSERT_EQ(out.size(), 1U);
+    EXPECT_TRUE(isFound(out[0]));
+    EXPECT_EQ(sys.listDirCalls, lists + 1);
+}
+
+TEST_F(InputManagerReadyTest, SR_INP_15_TooManyChangesGiveOneFullScan) {
+    // More devices change while Ready than are remembered: the next check scans everything.
+    for (int i = 0; i < 20; ++i) {
+        sys.plugIn("event" + std::to_string(30 + i), mouseBits());
+    }
+    pollAll(im);
+    sys.addDevice("event5", keyboardBits());  // present, its own event not remembered
+    sys.unplug("event0");
+    const int lists = sys.listDirCalls;
+    const auto out = pollAll(im);
+    ASSERT_EQ(out.size(), 2U);
+    EXPECT_TRUE(isLost(out[0]));
+    EXPECT_TRUE(isFound(out[1]));
+    EXPECT_EQ(im.devicePath(), "/dev/input/event5");
+    EXPECT_EQ(sys.listDirCalls, lists + 1);
+    pollAll(im);
+    EXPECT_EQ(sys.listDirCalls, lists + 1);  // only once
+}
+
+TEST_F(InputManagerTest, SR_INP_15_StartForgetsEarlierChanges) {
+    InputManager im(sys);
+    ASSERT_FALSE(im.start());
+    sys.dirEvents.emplace_back("event7");
+    pollAll(im);  // tried and dropped (no such device)
+    sys.addDevice("event7", keyboardBits());
+    EXPECT_TRUE(pollAll(im).empty());  // not reported again, so not tried again
+    ASSERT_TRUE(im.start());           // a full scan finds it
 }
 
 }  // namespace

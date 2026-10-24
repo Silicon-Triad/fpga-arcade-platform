@@ -6,6 +6,8 @@
 
 #include <array>
 #include <cerrno>
+#include <climits>
+#include <cstring>
 #include <filesystem>
 #include <system_error>
 
@@ -14,9 +16,11 @@
 namespace arcade {
 namespace {
 
-/// Bytes read from the inotify fd per read() call. Not an SRS value: dirChanged() repeats the
+/// Bytes read from the inotify fd per read() call. Not an SRS value: readDirChanges() repeats the
 /// call until EAGAIN, so this only sets how many events one call can return.
 constexpr std::size_t kInotifyBufBytes = 1024;
+// inotify(7): read() fails with EINVAL if the buffer cannot hold one event with the longest name.
+static_assert(kInotifyBufBytes >= sizeof(inotify_event) + NAME_MAX + 1, "inotify buffer");
 
 }  // namespace
 
@@ -54,7 +58,7 @@ ssize_t LinuxEvdevSys::read(int fd, void* buf, std::size_t len, int& err) {
 
 int LinuxEvdevSys::watchDir(const std::string& dir) {
     // SR-INP-15: inotify reports new device nodes without polling the directory. Non-blocking,
-    // so dirChanged() never waits (SR-INP-02).
+    // so readDirChanges() never waits (SR-INP-02).
     const int fd = ::inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
     if (fd < 0) {
         return -1;
@@ -69,16 +73,27 @@ int LinuxEvdevSys::watchDir(const std::string& dir) {
     return fd;
 }
 
-bool LinuxEvdevSys::dirChanged(int watchFd) {
+void LinuxEvdevSys::readDirChanges(int watchFd, DirChangeSink& sink) {
     // Large enough for several events with names; the loop drains whatever does not fit.
-    alignas(inotify_event) std::array<char, kInotifyBufBytes> buf{};
-    bool changed = false;
+    std::array<char, kInotifyBufBytes> buf{};
     for (;;) {
         const ssize_t n = ::read(watchFd, buf.data(), buf.size());
         if (n <= 0) {
-            return changed;  // EAGAIN: queue empty
+            return;  // EAGAIN: queue empty
         }
-        changed = true;
+        const auto end = static_cast<std::size_t>(n);
+        // inotify(7): each record is an inotify_event followed by `len` bytes holding the
+        // NUL-padded entry name; the kernel only returns whole records.
+        for (std::size_t off = 0; off + sizeof(inotify_event) <= end;) {
+            inotify_event ev{};
+            std::memcpy(&ev, buf.data() + off, sizeof(ev));  // the buffer may be unaligned
+            if ((ev.mask & IN_Q_OVERFLOW) != 0U) {
+                sink.eventsLost();
+            } else if (ev.len > 0) {
+                sink.entryChanged(buf.data() + off + sizeof(inotify_event));
+            }
+            off += sizeof(inotify_event) + ev.len;
+        }
     }
 }
 
