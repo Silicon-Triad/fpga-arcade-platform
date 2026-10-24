@@ -38,6 +38,16 @@ constexpr std::uint16_t TONE_DURATION_MIN = 10;
 /// Longest allowed tone duration in ms (TONE_DURATION_MAX, SR-AUD-05, SR-HAL-11).
 constexpr std::uint16_t TONE_DURATION_MAX = 2'000;
 
+/// Game-loop ticks per second, locked to vsync (TICK_RATE, SR-FW-02).
+constexpr std::uint16_t TICK_RATE = 60;
+
+/// Converts a tone duration in ms to whole game ticks, rounded to nearest, as the
+/// TBL-SoundEffect tick counts are (2 ticks = 33 ms). The HAL uses it to write the next note
+/// in the tick the previous one ends (SR-HAL-11). Valid for 0 to TONE_DURATION_MAX.
+constexpr std::uint8_t msToTicks(std::uint16_t ms) noexcept {
+    return static_cast<std::uint8_t>((ms * TICK_RATE + 500) / 1000);
+}
+
 // ---------------------------------------------------------------------------------------------
 // TBL-GameRegistry
 // ---------------------------------------------------------------------------------------------

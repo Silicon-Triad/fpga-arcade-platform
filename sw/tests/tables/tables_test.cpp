@@ -42,7 +42,14 @@ static_assert(std::is_same_v<decltype(SoundNote::note_no), std::uint8_t>, "UINT8
 static_assert(std::is_same_v<decltype(SoundNote::freq_hz), std::uint16_t>, "UINT16");
 static_assert(std::is_same_v<decltype(SoundNote::dur_ms), std::uint16_t>, "UINT16");
 
-/// Game ticks per second (TICK_RATE, SR-FW-02).
+static_assert(TICK_RATE == 60, "SR-FW-02: TICK_RATE");
+static_assert(msToTicks(33) == 2 && msToTicks(50) == 3 && msToTicks(83) == 5 &&
+                  msToTicks(100) == 6 && msToTicks(117) == 7 && msToTicks(133) == 8 &&
+                  msToTicks(150) == 9,
+              "SR-HAL-11: SRS section 5 tick counts");
+static_assert(msToTicks(TONE_DURATION_MAX) == 120, "SR-AUD-05: 2,000 ms fits in uint8_t");
+
+/// Game ticks per second, used to check msToTicks() independently (TICK_RATE, SR-FW-02).
 constexpr int kTickRate = 60;
 
 struct ExpectedNote {
@@ -84,6 +91,7 @@ TEST(Tables, TBL_SoundEffect_MatchesSrsSection5) {
         EXPECT_EQ(n.freq_hz, e.hz) << "row " << i;
         EXPECT_EQ(n.dur_ms, e.ms) << "row " << i;
         EXPECT_EQ(ticksToMs(e.ticks), n.dur_ms) << "row " << i;
+        EXPECT_EQ(msToTicks(n.dur_ms), e.ticks) << "row " << i;
     }
 }
 
