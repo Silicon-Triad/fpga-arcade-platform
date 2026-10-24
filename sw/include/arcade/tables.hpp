@@ -53,9 +53,9 @@ constexpr std::uint8_t msToTicks(std::uint16_t ms) noexcept {
 // ---------------------------------------------------------------------------------------------
 
 /// Release-1.0 game id of Snake (TBL-GameRegistry rows: (0, "SNAKE", 0)).
-constexpr std::uint8_t SNAKE = 0;
+constexpr std::uint8_t kGameIdSnake = 0;
 /// Release-1.0 game id of Breakout (TBL-GameRegistry rows: (1, "BREAKOUT", 1)).
-constexpr std::uint8_t BREAKOUT = 1;
+constexpr std::uint8_t kGameIdBreakout = 1;
 
 /// Longest game name (TBL-GameRegistry name VARCHAR(16)).
 constexpr std::size_t kGameNameMax = 16;

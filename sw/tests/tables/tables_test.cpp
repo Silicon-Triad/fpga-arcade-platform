@@ -16,7 +16,7 @@ static_assert(SCORE_MAX == 999'999, "SR-UI-04: SCORE_MAX");
 static_assert(HISCORE_SLOTS == 10 && kRankMin == 1 && kRankMax == 10, "SR-FW-10: rank 1-10");
 static_assert(INITIALS_LEN == 3, "SR-UI-10: three initials");
 static_assert(HISCORE_FILE == "/var/lib/arcade/highscores.csv", "SR-FW-08: HISCORE_FILE");
-static_assert(SNAKE == 0 && BREAKOUT == 1, "TBL-GameRegistry release-1.0 rows");
+static_assert(kGameIdSnake == 0 && kGameIdBreakout == 1, "TBL-GameRegistry release-1.0 rows");
 static_assert(TONE_FREQ_MIN == 100 && TONE_FREQ_MAX == 4'000, "SR-AUD-04");
 static_assert(TONE_DURATION_MIN == 10 && TONE_DURATION_MAX == 2'000, "SR-AUD-05");
 
