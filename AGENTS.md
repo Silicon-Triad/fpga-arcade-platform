@@ -85,7 +85,7 @@ Every folder has a `README.md` naming its owner and issues.
 
 Run every command from the **repository root**. Tool versions and installation are in `docs/setup/`.
 
-> **Status:** issue **#2** implements these commands. Two do not work yet: the `arcade` binary arrives with #16 (`sw/app/`), and the layering check with #5. Do not invent other commands. If one of these fails for a reason other than your change, say so in your PR.
+> **Status:** issue **#2** implements these commands. One does not work yet: the `arcade` binary arrives with #16 (`sw/app/`). Do not invent other commands. If one of these fails for a reason other than your change, say so in your PR.
 
 ### 3.1 Software (`sw/`)
 
@@ -142,7 +142,7 @@ Run every command from the **repository root**. Tool versions and installation a
 - **R-4.1.6** No heap allocation, file I/O or blocking calls inside a game tick except where the SRS requires them (for example the high-score save). `pollInput()` never blocks (SR-INP-02).
 - **R-4.1.7** No global mutable state outside the Game Engine. Games are pure state machines driven by `update(input)` (QA-04).
 - **R-4.1.8** Use `std::array` and fixed-width integers (`uint8_t`, `uint16_t`, `uint32_t`) for table fields, matching the SRS types.
-- **R-4.1.9** Layering (QA-01): Game → Arcade API → HAL → FPGA registers. No layer calls a layer above it or skips the layer below it. Only `sw/hal/` includes `register_map.hpp`. `tools/check_includes.py` enforces this (added by #5).
+- **R-4.1.9** Layering (QA-01): Game → Arcade API → HAL → FPGA registers. No layer calls a layer above it or skips the layer below it. Only `sw/hal/` and its unit tests in `sw/tests/hal/` include `register_map.hpp`. `tools/check_includes.py` enforces this (added by #5).
 - **R-4.1.10** Every public function and class has a short Doxygen comment (`///`) saying what it does and which SRS IDs it implements.
 - **R-4.1.11** Unit tests use GoogleTest, live in `sw/tests/<module>/`, and are named after the requirement where possible: `TEST(Snake, SR_GAM_03_SpeedRisesEveryFiveFood)`.
 
