@@ -1,10 +1,11 @@
-// Unit tests for the Input Manager on recorded devices and events (issue #20,
-// SR-INP-01 to SR-INP-08).
+// Unit tests for the Input Manager on recorded devices and events (issues #20 and #22,
+// SR-INP-01 to SR-INP-08, SR-INP-12 to SR-INP-16).
 #include "input/input_manager.hpp"
 
 #include <fcntl.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstring>
@@ -50,7 +51,8 @@ KeyBits keyboardBits() {
 KeyBits mouseBits() { return bitsFor({BTN_LEFT, BTN_RIGHT, BTN_MIDDLE}); }
 
 /// Recorded /dev/input: devices with key capabilities and queued reads. Each queued read is a
-/// batch of events returned by one read() call; an empty queue gives EAGAIN.
+/// batch of events returned by one read() call; an empty queue gives EAGAIN. inotify is a count
+/// of queued directory events (SR-INP-15).
 class FakeEvdevSys final : public EvdevSys {
   public:
     struct Device {
@@ -67,7 +69,15 @@ class FakeEvdevSys final : public EvdevSys {
     std::map<int, std::string> open_;       // fd -> path, currently open
     std::vector<int> openFlags;             // flags of every open() call
     std::vector<std::string> grabbed;       // paths grabbed successfully
+    std::vector<int> closed;                // every fd passed to close(), in order
     int readCalls = 0;
+    int listDirCalls = 0;
+
+    // inotify (SR-INP-15)
+    bool watchFails = false;           // watchDir() returns -1
+    std::vector<std::string> watched;  // every dir passed to watchDir()
+    int watchFd = -1;                  // last fd returned by watchDir()
+    int dirEvents = 0;                 // queued inotify events; dirChanged() consumes them all
 
     void addDevice(const std::string& name, const KeyBits& bits) {
         names.push_back(name);
@@ -75,7 +85,28 @@ class FakeEvdevSys final : public EvdevSys {
     }
     Device& dev(const std::string& name) { return devices.at("/dev/input/" + name); }
 
+    /// A device node appears (IN_CREATE). The same name may come back after an unplug.
+    void plugIn(const std::string& name, const KeyBits& bits) {
+        if (std::find(names.begin(), names.end(), name) == names.end()) {
+            names.push_back(name);
+        }
+        Device fresh;
+        fresh.bits = bits;
+        devices["/dev/input/" + name] = fresh;
+        ++dirEvents;
+    }
+    /// The device is removed: reads on its open fd give ENODEV and its node is gone. The kernel
+    /// reports this as IN_DELETE, which the Input Manager does not watch.
+    void unplug(const std::string& name) {
+        Device& d = dev(name);
+        d.reads.clear();
+        d.errorWhenEmpty = ENODEV;
+        d.openFails = true;
+        names.erase(std::remove(names.begin(), names.end(), name), names.end());
+    }
+
     std::vector<std::string> listDir(const std::string& dir) override {
+        ++listDirCalls;
         return dir == "/dev/input" ? names : std::vector<std::string>{};
     }
     int open(const std::string& path, int flags) override {
@@ -87,7 +118,10 @@ class FakeEvdevSys final : public EvdevSys {
         open_[fd] = path;
         return fd;
     }
-    void close(int fd) override { open_.erase(fd); }
+    void close(int fd) override {
+        closed.push_back(fd);
+        open_.erase(fd);
+    }
     bool keyBits(int fd, KeyBits& bits) override {
         const Device& d = devices.at(open_.at(fd));
         bits = d.bits;
@@ -120,6 +154,20 @@ class FakeEvdevSys final : public EvdevSys {
         std::memcpy(buf, batch.data(), batch.size() * sizeof(input_event));
         err = 0;
         return static_cast<ssize_t>(batch.size() * sizeof(input_event));
+    }
+    int watchDir(const std::string& dir) override {
+        watched.push_back(dir);
+        if (watchFails) {
+            return -1;
+        }
+        watchFd = nextFd_++;
+        return watchFd;
+    }
+    bool dirChanged(int fd) override {
+        EXPECT_EQ(fd, watchFd);
+        const bool changed = dirEvents > 0;
+        dirEvents = 0;
+        return changed;
     }
 
   private:
@@ -345,15 +393,17 @@ TEST_F(InputManagerReadyTest, SR_INP_04_LaterEventsComeNextTick) {
 }
 
 TEST_F(InputManagerReadyTest, SR_INP_04_OtherReadErrorEndsTheTick) {
-    // ENODEV (keyboard removed) is only handled by #22; until then it must end the tick quietly,
-    // keeping the events already read.
+    // An error other than EAGAIN and ENODEV ends the tick quietly, keeping the events already
+    // read and the keyboard. (ENODEV is the unplug path, SR-INP-12, tested below.)
     reads().push_back({keyEvent(KEY_A, 1)});
-    sys.dev("event0").errorWhenEmpty = ENODEV;
+    sys.dev("event0").errorWhenEmpty = EIO;
     const auto out = pollAll(im);
     ASSERT_EQ(out.size(), 1U);
     EXPECT_TRUE(isDown(out[0], KEY_A));
     EXPECT_TRUE(pollAll(im).empty());
     EXPECT_TRUE(im.isPressed(KEY_A));
+    EXPECT_EQ(im.state(), InputState::Ready);
+    EXPECT_TRUE(im.hasKeyboard());
 }
 
 // --- SR-INP-05 to SR-INP-07: event conversion ----------------------------------------------
@@ -444,6 +494,247 @@ TEST_F(InputManagerReadyTest, SR_INP_08_OutOfRangeCodeIsIgnored) {
     EXPECT_TRUE(pollAll(im).empty());
     EXPECT_FALSE(im.isPressed(KEY_CNT));
     EXPECT_FALSE(im.isPressed(0xFFFF));
+}
+
+// --- SR-INP-12 to SR-INP-16: hot-plug -------------------------------------------------------
+
+bool isLost(const KeyEvent& ev) { return ev.type == KeyEventType::KeyboardLost && ev.code == 0; }
+bool isFound(const KeyEvent& ev) { return ev.type == KeyEventType::KeyboardFound && ev.code == 0; }
+
+TEST_F(InputManagerTest, SR_INP_16_StateIsScanningUntilStart) {
+    InputManager im(sys);
+    EXPECT_EQ(im.state(), InputState::Scanning);
+}
+
+TEST_F(InputManagerTest, SR_INP_16_NoKeyboardAtStartUpEntersNoKeyboard) {
+    sys.addDevice("event0", mouseBits());
+    InputManager im(sys);
+    EXPECT_FALSE(im.start());
+    EXPECT_EQ(im.state(), InputState::NoKeyboard);
+    EXPECT_FALSE(im.hasKeyboard());
+    EXPECT_TRUE(pollAll(im).empty());  // start-up goes on; no KeyboardLost without a keyboard
+    EXPECT_EQ(im.state(), InputState::NoKeyboard);
+}
+
+TEST_F(InputManagerTest, SR_INP_16_KeyboardAtStartUpEntersReady) {
+    sys.addDevice("event0", keyboardBits());
+    InputManager im(sys);
+    ASSERT_TRUE(im.start());
+    EXPECT_EQ(im.state(), InputState::Ready);
+}
+
+TEST_F(InputManagerTest, SR_INP_15_StartWatchesDevInputOnce) {
+    sys.addDevice("event0", keyboardBits());
+    InputManager im(sys);
+    ASSERT_TRUE(im.start());
+    ASSERT_TRUE(im.start());
+    EXPECT_EQ(sys.watched, std::vector<std::string>{"/dev/input"});
+}
+
+TEST_F(InputManagerTest, SR_INP_15_DestructorClosesTheWatch) {
+    {
+        InputManager im(sys);
+        im.start();
+    }
+    ASSERT_GE(sys.watchFd, 0);
+    EXPECT_NE(std::find(sys.closed.begin(), sys.closed.end(), sys.watchFd), sys.closed.end());
+}
+
+TEST_F(InputManagerReadyTest, SR_INP_12_EnodevEntersDisconnected) {
+    sys.unplug("event0");
+    pollAll(im);
+    EXPECT_EQ(im.state(), InputState::Disconnected);
+    EXPECT_FALSE(im.hasKeyboard());
+    EXPECT_TRUE(im.devicePath().empty());
+    EXPECT_TRUE(sys.open_.empty());  // the stale fd is closed (SR-INP-12 rationale)
+}
+
+TEST_F(InputManagerReadyTest, SR_INP_13_EveryKeyIsReleased) {
+    reads().push_back({keyEvent(KEY_LEFT, 1), keyEvent(KEY_A, 1), keyEvent(KEY_SPACE, 1)});
+    pollAll(im);
+    ASSERT_TRUE(im.isPressed(KEY_LEFT));
+    sys.unplug("event0");
+    pollAll(im);
+    for (std::uint16_t code = 0; code < KEY_CNT; ++code) {
+        EXPECT_FALSE(im.isPressed(code)) << code;
+    }
+}
+
+TEST_F(InputManagerReadyTest, SR_INP_14_KeyboardLostInTheSameTick) {
+    // The last events before the unplug come first, then KeyboardLost, all in one poll.
+    sys.unplug("event0");
+    reads().push_back({keyEvent(KEY_A, 1)});  // still queued when the device went away
+    const auto out = pollAll(im);
+    ASSERT_EQ(out.size(), 2U);
+    EXPECT_TRUE(isDown(out[0], KEY_A));
+    EXPECT_TRUE(isLost(out[1]));
+    EXPECT_TRUE(pollAll(im).empty());  // reported once
+}
+
+// Acceptance check of #22, part 1: ENODEV gives the Disconnected state, all keys released and
+// KeyboardLost in the same tick.
+TEST_F(InputManagerReadyTest, SR_INP_12_13_14_UnplugWhileHoldingAKey) {
+    reads().push_back({keyEvent(KEY_RIGHT, 1)});
+    pollAll(im);
+    ASSERT_TRUE(im.isPressed(KEY_RIGHT));
+    sys.unplug("event0");
+    const auto out = pollAll(im);
+    ASSERT_EQ(out.size(), 1U);
+    EXPECT_TRUE(isLost(out[0]));
+    EXPECT_EQ(im.state(), InputState::Disconnected);
+    EXPECT_FALSE(im.isPressed(KEY_RIGHT));
+}
+
+TEST_F(InputManagerReadyTest, SR_INP_12_NoReadsWhileDisconnected) {
+    sys.unplug("event0");
+    pollAll(im);
+    const int reads = sys.readCalls;
+    pollAll(im);
+    pollAll(im);
+    EXPECT_EQ(sys.readCalls, reads);
+}
+
+// Acceptance check of #22, part 2: a new device is picked up.
+TEST_F(InputManagerReadyTest, SR_INP_15_NewKeyboardPickedUpAfterUnplug) {
+    sys.unplug("event0");
+    pollAll(im);
+    EXPECT_TRUE(pollAll(im).empty());  // nothing plugged in yet
+    EXPECT_EQ(im.state(), InputState::Disconnected);
+
+    sys.plugIn("event3", keyboardBits());
+    const auto out = pollAll(im);  // the next tick after the inotify event, well within 1 s
+    ASSERT_EQ(out.size(), 1U);
+    EXPECT_TRUE(isFound(out[0]));
+    EXPECT_EQ(im.state(), InputState::Ready);
+    EXPECT_EQ(im.devicePath(), "/dev/input/event3");
+    EXPECT_EQ(sys.grabbed.back(), "/dev/input/event3");      // SR-INP-03 again
+    EXPECT_EQ(sys.openFlags.back(), O_RDONLY | O_NONBLOCK);  // SR-INP-02 again
+
+    sys.dev("event3").reads.push_back({keyEvent(KEY_UP, 1)});
+    const auto keys = pollAll(im);
+    ASSERT_EQ(keys.size(), 1U);
+    EXPECT_TRUE(isDown(keys[0], KEY_UP));
+}
+
+TEST_F(InputManagerReadyTest, SR_INP_15_SameNodeNamePluggedInAgain) {
+    sys.unplug("event0");
+    pollAll(im);
+    sys.plugIn("event0", keyboardBits());
+    const auto out = pollAll(im);
+    ASSERT_EQ(out.size(), 1U);
+    EXPECT_TRUE(isFound(out[0]));
+    EXPECT_EQ(im.devicePath(), "/dev/input/event0");
+}
+
+TEST_F(InputManagerTest, SR_INP_15_KeyboardPluggedInAfterStartUpWithoutOne) {
+    InputManager im(sys);
+    ASSERT_FALSE(im.start());
+    EXPECT_TRUE(pollAll(im).empty());
+    sys.plugIn("event1", keyboardBits());
+    const auto out = pollAll(im);
+    ASSERT_EQ(out.size(), 1U);
+    EXPECT_TRUE(isFound(out[0]));
+    EXPECT_EQ(im.state(), InputState::Ready);
+}
+
+TEST_F(InputManagerTest, SR_INP_15_MouseIsNotSelected) {
+    InputManager im(sys);
+    ASSERT_FALSE(im.start());
+    sys.plugIn("event1", mouseBits());
+    EXPECT_TRUE(pollAll(im).empty());
+    EXPECT_EQ(im.state(), InputState::NoKeyboard);
+    EXPECT_TRUE(sys.open_.empty());  // the mouse was checked and closed
+    sys.plugIn("event2", keyboardBits());
+    const auto out = pollAll(im);
+    ASSERT_EQ(out.size(), 1U);
+    EXPECT_TRUE(isFound(out[0]));
+    EXPECT_EQ(im.devicePath(), "/dev/input/event2");
+}
+
+TEST_F(InputManagerTest, SR_INP_15_NoScanWithoutAnInotifyEvent) {
+    // inotify drives the search; the directory is not listed every tick.
+    InputManager im(sys);
+    ASSERT_FALSE(im.start());
+    const int lists = sys.listDirCalls;
+    sys.addDevice("event1", keyboardBits());  // appears without an inotify event
+    for (int i = 0; i < 10; ++i) {
+        EXPECT_TRUE(pollAll(im).empty());
+    }
+    EXPECT_EQ(sys.listDirCalls, lists);
+}
+
+TEST_F(InputManagerTest, SR_INP_15_NodeNotYetOpenableIsPickedUpOnAttributeChange) {
+    // The node can appear (IN_CREATE) before its group and mode let the `arcade` user open it;
+    // the later IN_ATTRIB event starts another scan (sw/input/README.md).
+    InputManager im(sys);
+    ASSERT_FALSE(im.start());
+    sys.plugIn("event1", keyboardBits());
+    sys.dev("event1").openFails = true;
+    EXPECT_TRUE(pollAll(im).empty());
+    EXPECT_EQ(im.state(), InputState::NoKeyboard);
+    sys.dev("event1").openFails = false;
+    ++sys.dirEvents;  // IN_ATTRIB
+    const auto out = pollAll(im);
+    ASSERT_EQ(out.size(), 1U);
+    EXPECT_TRUE(isFound(out[0]));
+}
+
+TEST_F(InputManagerReadyTest, SR_INP_15_ChangesWhileReadyDoNotRescan) {
+    const int lists = sys.listDirCalls;
+    sys.plugIn("event1", keyboardBits());
+    EXPECT_TRUE(pollAll(im).empty());
+    EXPECT_EQ(sys.listDirCalls, lists);
+    EXPECT_EQ(im.devicePath(), "/dev/input/event0");
+    EXPECT_EQ(sys.dirEvents, 0);  // but the inotify queue is still drained
+}
+
+TEST_F(InputManagerReadyTest, SR_INP_15_OtherKeyboardAlreadyPresentIsTakenAtOnce) {
+    // A second keyboard plugged in during play (its inotify event read while Ready), then the
+    // first one pulled: the second is selected in the same tick, after KeyboardLost.
+    sys.plugIn("event1", keyboardBits());
+    pollAll(im);
+    sys.unplug("event0");
+    const auto out = pollAll(im);
+    ASSERT_EQ(out.size(), 2U);
+    EXPECT_TRUE(isLost(out[0]));
+    EXPECT_TRUE(isFound(out[1]));
+    EXPECT_EQ(im.devicePath(), "/dev/input/event1");
+    EXPECT_EQ(im.state(), InputState::Ready);
+}
+
+TEST_F(InputManagerTest, SR_INP_15_WatchThatFailedAtStartUpIsRetried) {
+    sys.watchFails = true;
+    InputManager im(sys);
+    ASSERT_FALSE(im.start());
+    sys.addDevice("event1", keyboardBits());
+    EXPECT_TRUE(pollAll(im).empty());  // no watch yet, so nothing is reported
+    sys.watchFails = false;
+    const auto out = pollAll(im);  // the watch works now: scan once for what was missed
+    ASSERT_EQ(out.size(), 1U);
+    EXPECT_TRUE(isFound(out[0]));
+}
+
+TEST_F(InputManagerReadyTest, SR_INP_12_15_TwentyUnplugCyclesLeakNothing) {
+    // Supports SF-03 (20 unplug/replug cycles, a board test in #49): every cycle gives one
+    // KeyboardLost and one KeyboardFound, and only one keyboard fd stays open.
+    for (int cycle = 0; cycle < 20; ++cycle) {
+        const std::string name = (cycle % 2 == 0) ? "event0" : "event1";
+        const std::string next = (cycle % 2 == 0) ? "event1" : "event0";
+        sys.dev(name).reads.push_back({keyEvent(KEY_LEFT, 1)});
+        pollAll(im);
+        ASSERT_TRUE(im.isPressed(KEY_LEFT));
+        sys.unplug(name);
+        auto lost = pollAll(im);
+        ASSERT_EQ(lost.size(), 1U) << cycle;
+        EXPECT_TRUE(isLost(lost[0]));
+        EXPECT_FALSE(im.isPressed(KEY_LEFT));
+        sys.plugIn(next, keyboardBits());
+        auto found = pollAll(im);
+        ASSERT_EQ(found.size(), 1U) << cycle;
+        EXPECT_TRUE(isFound(found[0]));
+        EXPECT_EQ(im.devicePath(), "/dev/input/" + next);
+        EXPECT_EQ(sys.open_.size(), 1U);
+    }
 }
 
 }  // namespace

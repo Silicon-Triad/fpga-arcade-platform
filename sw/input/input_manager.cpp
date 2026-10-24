@@ -1,9 +1,11 @@
-// Input Manager: keyboard selection, non-blocking reads and key state (SR-INP-01 to SR-INP-08).
+// Input Manager: keyboard selection, non-blocking reads, key state and hot-plug
+// (SR-INP-01 to SR-INP-08, SR-INP-12 to SR-INP-16).
 #include "input/input_manager.hpp"
 
 #include <fcntl.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstring>
 #include <utility>
 #include <vector>
@@ -44,18 +46,36 @@ bool hasKey(const KeyBits& bits, std::uint16_t code) {
 InputManager::InputManager(EvdevSys& sys) : sys_(sys) {}
 
 InputManager::~InputManager() {
-    if (fd_ >= 0) {
-        sys_.close(fd_);  // closing the device also releases the EVIOCGRAB grab
+    closeKeyboard();
+    if (watchFd_ >= 0) {
+        sys_.close(watchFd_);
     }
 }
 
-bool InputManager::start() {
-    // A repeated scan replaces the current keyboard; close it first so its fd and grab are freed.
+void InputManager::closeKeyboard() {
     if (fd_ >= 0) {
-        sys_.close(fd_);
+        sys_.close(fd_);  // closing the device also releases the EVIOCGRAB grab
         fd_ = -1;
-        path_.clear();
     }
+    path_.clear();
+}
+
+bool InputManager::start() {
+    state_ = InputState::Scanning;
+    // SR-INP-15: watch before scanning, so a keyboard plugged in during the scan is not missed.
+    if (watchFd_ < 0) {
+        watchFd_ = sys_.watchDir(kInputDir);
+    }
+    // A repeated scan replaces the current keyboard; close it first so its fd and grab are freed.
+    closeKeyboard();
+    pressed_.fill(false);
+    rescanPending_ = false;
+    // SR-INP-16: start-up continues without a keyboard.
+    state_ = scan() ? InputState::Ready : InputState::NoKeyboard;
+    return state_ == InputState::Ready;
+}
+
+bool InputManager::scan() {
     // SR-INP-01: "first" device = lowest event number, so event2 comes before event10.
     std::vector<std::pair<long, std::string>> candidates;
     for (const std::string& name : sys_.listDir(kInputDir)) {
@@ -95,13 +115,19 @@ bool InputManager::isKeyboard(int fd) {
                        [&bits](std::uint16_t code) { return hasKey(bits, code); });
 }
 
-std::size_t InputManager::readBatch() {
+std::size_t InputManager::readBatch(ReadEnd& end) {
     int err = 0;
     const ssize_t bytes = sys_.read(fd_, buf_.data(), sizeof(buf_), err);
     if (bytes <= 0) {
-        // SR-INP-04: EAGAIN means the queue is empty for this tick. Other errors also stop the
-        // tick and leave `err` unused for now.
-        // TODO(#22): on ENODEV enter the Disconnected state (SR-INP-12 to SR-INP-14).
+        // SR-INP-04: EAGAIN means the queue is empty for this tick. SR-INP-12: ENODEV means the
+        // keyboard was removed. Other errors only end the tick.
+        if (bytes < 0 && err == ENODEV) {
+            end = ReadEnd::DeviceGone;
+        } else if (bytes < 0 && err == EAGAIN) {
+            end = ReadEnd::Empty;
+        } else {
+            end = ReadEnd::Error;
+        }
         return 0;
     }
     // evdev returns whole events only.
@@ -125,6 +151,31 @@ bool InputManager::translate(const input_event& raw, KeyEvent& out) {
         default:
             return false;
     }
+}
+
+void InputManager::enterDisconnected() {
+    // SR-INP-12: the stale file descriptor is closed on entry to Disconnected.
+    closeKeyboard();
+    // SR-INP-13: a key held while unplugging must not stay pressed.
+    pressed_.fill(false);
+    state_ = InputState::Disconnected;
+    // SR-INP-15: scan once straight away. Another keyboard may already be plugged in, or the
+    // same one plugged in again before ENODEV was read, and its inotify event was then read
+    // while Ready.
+    rescanPending_ = true;
+}
+
+bool InputManager::watchReportsChange() {
+    if (watchFd_ < 0) {
+        // The watch could not be set up at start-up; try again, and scan once if it now works,
+        // since changes before it existed were not reported (SR-INP-15).
+        watchFd_ = sys_.watchDir(kInputDir);
+        if (watchFd_ < 0) {
+            return false;
+        }
+        rescanPending_ = true;
+    }
+    return sys_.dirChanged(watchFd_);
 }
 
 }  // namespace arcade

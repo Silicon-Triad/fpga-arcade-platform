@@ -44,8 +44,18 @@ class EvdevSys {
     virtual bool grab(int fd) = 0;
 
     /// `read(2)` of up to `len` bytes into `buf`. Returns the byte count, or -1 with the
-    /// `errno` value stored in `err` (for example `EAGAIN` when the queue is empty, SR-INP-04).
+    /// `errno` value stored in `err` (for example `EAGAIN` when the queue is empty, SR-INP-04,
+    /// or `ENODEV` once the keyboard has been removed, SR-INP-12).
     virtual ssize_t read(int fd, void* buf, std::size_t len, int& err) = 0;
+
+    /// Starts watching directory `dir` with a non-blocking inotify instance for entries being
+    /// created (`IN_CREATE`) or having their attributes changed (`IN_ATTRIB`) (SR-INP-15).
+    /// Returns the watch file descriptor, or -1 on failure. Close it with close().
+    virtual int watchDir(const std::string& dir) = 0;
+
+    /// Reads every queued inotify event from `watchFd` without blocking. Returns true if at
+    /// least one event arrived since the last call (SR-INP-15).
+    virtual bool dirChanged(int watchFd) = 0;
 };
 
 /// The real implementation, calling the Linux kernel.
@@ -58,6 +68,8 @@ class LinuxEvdevSys final : public EvdevSys {
     bool keyBits(int fd, KeyBits& bits) override;
     bool grab(int fd) override;
     ssize_t read(int fd, void* buf, std::size_t len, int& err) override;
+    int watchDir(const std::string& dir) override;
+    bool dirChanged(int watchFd) override;
 };
 
 }  // namespace arcade
