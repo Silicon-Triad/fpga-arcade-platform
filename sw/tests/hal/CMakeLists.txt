@@ -1,0 +1,1 @@
+arcade_add_test(register_map_test SOURCES register_map_test.cpp LIBS arcade_hal)

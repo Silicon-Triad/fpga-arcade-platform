@@ -17,6 +17,7 @@ if(ARCADE_COVERAGE)
 endif()
 
 add_subdirectory(input)
+add_subdirectory(hal)
 
 if(ARCADE_BUILD_TESTS)
     # GoogleTest: use the system package (libgtest-dev) if present, else fetch it.
