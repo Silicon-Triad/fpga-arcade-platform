@@ -19,6 +19,7 @@ endif()
 add_subdirectory(input)
 add_subdirectory(hal)
 add_subdirectory(engine)
+add_subdirectory(tools)
 
 if(ARCADE_BUILD_TESTS)
     # GoogleTest: use the system package (libgtest-dev) if present, else fetch it.
