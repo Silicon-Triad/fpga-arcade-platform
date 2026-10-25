@@ -11,6 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(ARCADE_BUILD_TESTS "Build GoogleTest unit tests" ON)
 option(ARCADE_WERROR "Treat compiler warnings as errors" ON)
 option(ARCADE_COVERAGE "Instrument for line coverage (gcovr)" OFF)
+option(ARCADE_BACKEND_SDL "Build the SDL2 backend (PC only; needs SDL2)" OFF)
 
 if(ARCADE_BUILD_TESTS)
     enable_testing()

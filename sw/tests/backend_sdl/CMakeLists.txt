@@ -1,0 +1,1 @@
+arcade_add_test(sdl_backend_test SOURCES sdl_backend_test.cpp LIBS arcade_backend_sdl)
