@@ -49,16 +49,28 @@ constexpr auto kLeadIn = std::chrono::milliseconds(100);
 
 /// The real Linux calls, but only the injector's device counts as a keyboard, so the test never
 /// selects or grabs the PC's own keyboard (which usually has a lower event number, SR-INP-01).
-class InjectorOnlySys final : public arcade::LinuxEvdevSys {
+/// Wraps LinuxEvdevSys instead of deriving from it, so the production class stays final; every
+/// other call is passed straight through.
+class InjectorOnlySys final : public arcade::EvdevSys {
   public:
+    std::vector<std::string> listDir(const std::string& dir) override { return real_.listDir(dir); }
+    int open(const std::string& path, int flags) override { return real_.open(path, flags); }
+    void close(int fd) override { real_.close(fd); }
     bool keyBits(int fd, arcade::KeyBits& bits) override {
         std::array<char, 256> name{};  // EVIOCGNAME fills at most size - 1 characters
         if (::ioctl(fd, EVIOCGNAME(name.size() - 1), name.data()) < 0 ||  // NOLINT
             std::strcmp(name.data(), kDeviceName) != 0) {
             return false;
         }
-        return LinuxEvdevSys::keyBits(fd, bits);
+        return real_.keyBits(fd, bits);
     }
+    bool grab(int fd) override { return real_.grab(fd); }
+    ssize_t read(int fd, void* buf, std::size_t len, int& err) override {
+        return real_.read(fd, buf, len, err);
+    }
+
+  private:
+    arcade::LinuxEvdevSys real_;
 };
 
 int fail(const char* what, const std::string& detail) {

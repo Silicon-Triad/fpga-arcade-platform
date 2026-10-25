@@ -28,7 +28,7 @@ The run takes about 61 s. CI does not run it (no uinput access, and CI must stay
 ## Decisions (area owner, #23)
 
 - **`/dev/uinput` as the default path.** The SRS names uinput (PR-06, glossary) but gives no path. This is the path in the kernel's uinput documentation (`Documentation/input/uinput.rst`). `--device` overrides it.
-- **Only the virtual keyboard is used.** `input_throughput_test` accepts only the device named `arcade uinput inject` as a keyboard, so it never grabs the PC's own keyboard, which usually has a lower event number (SR-INP-01). The Input Manager code itself is unchanged; the test derives from `LinuxEvdevSys` for this.
+- **Only the virtual keyboard is used.** `input_throughput_test` accepts only the device named `arcade uinput inject` as a keyboard, so it never grabs the PC's own keyboard, which usually has a lower event number (SR-INP-01). The Input Manager code itself is unchanged; the test wraps `LinuxEvdevSys` (which stays `final`) and filters `keyBits()` by device name.
 - **Keys:** the letters A to Z in turn, so `uinput_inject` cannot run commands if its keys reach a terminal (no Enter). The virtual keyboard reports every key SR-INP-01 requires, so the Input Manager selects it.
 - **Timing:** press `i` at `i / rate` seconds, release halfway to the next press, so a key is always released before the next one is pressed. 1,800 pairs at 30/s last just under 60 s.
 - **Ordering is checked, not only counts.** Each KeyDown must be followed by the KeyUp of the same key, in plan order; any other event (for example KeyboardLost) fails the test.

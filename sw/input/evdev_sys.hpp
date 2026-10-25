@@ -48,9 +48,8 @@ class EvdevSys {
     virtual ssize_t read(int fd, void* buf, std::size_t len, int& err) = 0;
 };
 
-/// The real implementation, calling the Linux kernel. Not final: test tools derive from it to
-/// restrict which device counts as the keyboard (sw/tools/uinput/, PR-06).
-class LinuxEvdevSys : public EvdevSys {
+/// The real implementation, calling the Linux kernel.
+class LinuxEvdevSys final : public EvdevSys {
   public:
     LinuxEvdevSys() = default;
     std::vector<std::string> listDir(const std::string& dir) override;
