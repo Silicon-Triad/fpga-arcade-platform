@@ -198,7 +198,7 @@ SR-FW 01–14 (#7, #8, #11, #14–#17), SR-UI 01–15 (#8–#10, #12, #13, #15),
 
 | # | Decision | Answer |
 |---|---|---|
-| 1 | GitHub usernames | Muhammad = @Muhammad-Ahmed-Qazi, Mujtaba = @MujtabaJRao, Huzaifa = @huzaifa-2123 |
+| 1 | GitHub usernames | Muhammad = @Muhammad-Ahmed-Qazi, Mujtaba = @MujtabaJRao, Huzaifa = @Huzaifa-Hanif-01 |
 | 2 | Dates | Release by end of Week 13 (15 Nov 2026); milestone dates in section 2 |
 | 3 | Quartus | No lab install; each member uses Quartus Prime 25.1 or later on their own machine, Quartus Prime Lite 25.1 or later with Questa–Intel FPGA Starter Edition (both free) |
 | 4 | Hardware checks in CI | B + E, no self-hosted runner (section 1, Tooling) |
