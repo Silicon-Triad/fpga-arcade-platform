@@ -5,4 +5,6 @@
 
 Test tools: uinput injector, tick profiler, soak driver. SRS: PR-04, PR-06, QA-05.
 
+- [`uinput/`](uinput/README.md): `uinput_inject` and `input_throughput_test` (PR-06, #23).
+
 Rules: see [`AGENTS.md`](/AGENTS.md).
