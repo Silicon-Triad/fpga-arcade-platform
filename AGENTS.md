@@ -228,7 +228,7 @@ These interfaces connect people's work. **Changing them breaks someone else.** T
 |---|---|---|---|
 | **Muhammad** | @Muhammad-Ahmed-Qazi | Game Engine, Arcade API, game interface, Snake, Breakout, screens, high scores, SDL2 backend, **integration** and deployment, CI | `sw/include/`, `sw/engine/`, `sw/games/`, `sw/assets/`, `sw/backend_sdl/`, `sw/app/`, `board/deploy/`, `tools/`, `.github/`, `docs/dev/` |
 | **Mujtaba** | @MujtabaJRao | LW **bridge** and register block, Tile **Renderer**, **HAL**, FPGA backend, Quartus top level and pins | `sw/hal/`, `sw/backend_fpga/`, `hw/rtl/` (bridge_regs, tile_renderer, arcade_top, arcade_regs_pkg), `hw/ip/`, `hw/quartus/`, `hw/reports/` |
-| **Huzaifa** | @huzaifa-2123 | **VGA** Controller, **Input** Manager, **audio** (Tone Generator, I2S), **board tests** | `sw/input/`, `hw/rtl/` (vga_controller, tone_generator, i2s_tx), `board/tests/`, `docs/user/quick-start.md` |
+| **Huzaifa** | @Huzaifa-Hanif-01 | **VGA** Controller, **Input** Manager, **audio** (Tone Generator, I2S), **board tests** | `sw/input/`, `hw/rtl/` (vga_controller, tone_generator, i2s_tx), `board/tests/`, `docs/user/quick-start.md` |
 
 - **R-8.1** The owner decides questions about their area and reviews its PRs.
 - **R-8.2** Changing another owner's area needs that owner's review, even for a one-line fix.

@@ -1,0 +1,1 @@
+arcade_add_test(uinput_tools_test SOURCES uinput_tools_test.cpp LIBS arcade_uinput arcade_input)
