@@ -160,7 +160,15 @@ void SdlBackend::handleKey(bool down, int scancode) noexcept {
         return;
     }
     keyHeld_[*code] = down;  // App. A key_state, SR-INP-08
-    const auto mapping = lookup_.lookup(context_, *code);
+    // KeyDown maps through the current context; KeyUp reuses its KeyDown's mapping.
+    std::optional<KeyMapping> mapping;
+    if (down) {
+        mapping = lookup_.lookup(context_, *code);
+        pressMapping_[*code] = mapping;
+    } else {
+        mapping = pressMapping_[*code];
+        pressMapping_[*code].reset();
+    }
     if (!mapping) {
         return;  // unbound keys produce no event (SR-INP-09)
     }

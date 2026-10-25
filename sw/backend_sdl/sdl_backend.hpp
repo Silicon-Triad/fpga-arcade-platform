@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 #include "arcade/engine_api.hpp"
@@ -116,6 +117,9 @@ class SdlBackend final : public EngineApi {
 
     InputContext context_ = InputContext::Menu;
     std::array<bool, linux_key::kCount> keyHeld_{};
+    /// Mapping of each held key at its KeyDown, so its KeyUp reports the same action even if
+    /// the context changed while it was held (SR-FW-06; the board Input Manager matches, #21).
+    std::array<std::optional<KeyMapping>, linux_key::kCount> pressMapping_{};
     std::array<InputEvent, kQueueCapacity> queue_{};
     std::size_t queueHead_ = 0;
     std::size_t queueSize_ = 0;

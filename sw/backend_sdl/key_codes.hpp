@@ -11,7 +11,7 @@
 namespace arcade {
 
 /// Linux `KEY_*` values, copied from `<linux/input-event-codes.h>` so the backend also builds
-/// on Windows (QA-03). On Linux, sdl_backend.cpp checks each value against that header.
+/// on Windows (QA-03). On Linux, key_codes.cpp checks each value against that header.
 namespace linux_key {
 constexpr std::uint16_t kEsc = 1;          // KEY_ESC
 constexpr std::uint16_t k1 = 2;            // KEY_1 (KEY_2 to KEY_9 follow: 3-10)

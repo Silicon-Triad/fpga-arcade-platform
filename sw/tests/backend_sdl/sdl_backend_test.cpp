@@ -273,6 +273,31 @@ TEST_F(SdlBackendTest, SR_INP_09_ActionsComeFromLookupWithCurrentContext) {
     EXPECT_EQ(f.count, 0U);
 }
 
+TEST_F(SdlBackendTest, SR_FW_06_KeyUpUsesActionOfItsKeyDown) {
+    // Enter selects on the menu; the screen changes to Snake before Enter is released.
+    lookup.bindings[{InputContext::Menu, linux_key::kEnter}] = {Action::Select, 0};
+    lookup.bindings[{InputContext::Snake, linux_key::kEnter}] = {Action::Pause, 0};
+    pushKey(SDL_KEYDOWN, SDL_SCANCODE_RETURN);
+    InputFrame f = backend->pollInput();
+    ASSERT_EQ(f.count, 1U);
+    EXPECT_EQ(f.events[0].action, Action::Select);
+
+    ASSERT_EQ(backend->setInputContext(InputContext::Snake), ApiStatus::Ok);
+    pushKey(SDL_KEYUP, SDL_SCANCODE_RETURN);
+    f = backend->pollInput();
+    ASSERT_EQ(f.count, 1U);
+    EXPECT_EQ(f.events[0].type, InputEventType::KeyUp);
+    EXPECT_EQ(f.events[0].action, Action::Select);
+
+    // A key pressed while unbound gives no KeyUp, even if bound at release.
+    ASSERT_EQ(backend->setInputContext(InputContext::Menu), ApiStatus::Ok);
+    pushKey(SDL_KEYDOWN, SDL_SCANCODE_P);
+    EXPECT_EQ(backend->pollInput().count, 0U);
+    lookup.bindings[{InputContext::Menu, linux_key::kP}] = {Action::Pause, 0};
+    pushKey(SDL_KEYUP, SDL_SCANCODE_P);
+    EXPECT_EQ(backend->pollInput().count, 0U);
+}
+
 TEST_F(SdlBackendTest, SR_INP_02_EventsBeyondMaxPerTickCarryOver) {
     lookup.bindings[{InputContext::Menu, linux_key::kLeft}] = {Action::Left, 0};
     lookup.bindings[{InputContext::Menu, linux_key::kRight}] = {Action::Right, 0};
