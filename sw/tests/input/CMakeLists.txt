@@ -1,2 +1,3 @@
 arcade_add_test(input_manager_test SOURCES input_manager_test.cpp LIBS arcade_input)
 arcade_add_test(key_bindings_test SOURCES key_bindings_test.cpp LIBS arcade_input)
+arcade_add_test(linux_evdev_sys_test SOURCES linux_evdev_sys_test.cpp LIBS arcade_input)
