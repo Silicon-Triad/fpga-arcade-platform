@@ -68,6 +68,10 @@ class InjectorOnlySys final : public arcade::EvdevSys {
     ssize_t read(int fd, void* buf, std::size_t len, int& err) override {
         return real_.read(fd, buf, len, err);
     }
+    int watchDir(const std::string& dir) override { return real_.watchDir(dir); }
+    void readDirChanges(int watchFd, arcade::DirChangeSink& sink) override {
+        real_.readDirChanges(watchFd, sink);
+    }
 
   private:
     arcade::LinuxEvdevSys real_;
