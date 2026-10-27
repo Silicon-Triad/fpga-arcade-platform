@@ -12,7 +12,11 @@
       "name": "pc-debug",
       "displayName": "PC debug (SDL2 backend, unit tests)",
       "inherits": "base",
-      "cacheVariables": {"CMAKE_BUILD_TYPE": "Debug", "ARCADE_BUILD_TESTS": "ON"}
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ARCADE_BUILD_TESTS": "ON",
+        "ARCADE_BACKEND_SDL": "ON"
+      }
     },
     {
       "name": "pc-coverage",
@@ -21,7 +25,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "ARCADE_BUILD_TESTS": "ON",
-        "ARCADE_COVERAGE": "ON"
+        "ARCADE_COVERAGE": "ON",
+        "ARCADE_BACKEND_SDL": "ON"
       }
     },
     {
@@ -29,7 +34,11 @@
       "displayName": "DE1-SoC board (ARM Cortex-A9, hard float)",
       "inherits": "base",
       "toolchainFile": "${sourceDir}/cmake/arm-linux-gnueabihf.cmake",
-      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "ARCADE_BUILD_TESTS": "OFF"}
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ARCADE_BUILD_TESTS": "OFF",
+        "ARCADE_BACKEND_SDL": "OFF"
+      }
     }
   ],
   "buildPresets": [
