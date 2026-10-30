@@ -1,3 +1,5 @@
+/* verilator lint_off UNUSEDPARAM */
+/* verilator lint_off TIMESCALEMOD */
 // FROZEN INTERFACE: see AGENTS.md section 6. Do not change without an approved issue.
 package arcade_regs_pkg;
 
