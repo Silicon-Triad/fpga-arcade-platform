@@ -30,12 +30,17 @@ TileIndex mosaicTileAt(const GlyphCell& cell, int tileCol, int tileRow) noexcept
 
 ApiStatus textToTiles(int col, int row, std::string_view text, TextScale scale, CellSink sink,
                       void* context) noexcept {
-    if (!std::all_of(text.begin(), text.end(), hasGlyph)) {
+    // SR-FW-12: only scales 1 and 4 exist.
+    if (sink == nullptr || (scale != TextScale::X1 && scale != TextScale::X4) ||
+        !std::all_of(text.begin(), text.end(), hasGlyph)) {
         return ApiStatus::InvalidArgument;
     }
-    const int size = static_cast<int>(scale);  // SR-FW-12: 1 or 4 tiles per character
-    if (col < 0 || row < 0 || text.size() > static_cast<std::size_t>(kGridCols) ||
-        col + static_cast<int>(text.size()) * size > kGridCols || row + size > kGridRows) {
+    const int size = static_cast<int>(scale);  // tiles per character
+    if (col < 0 || row < 0 || text.size() > static_cast<std::size_t>(kGridCols / size)) {
+        return ApiStatus::OutOfRange;
+    }
+    // Subtract from the grid size: col + width could overflow for extreme coordinates.
+    if (col > kGridCols - static_cast<int>(text.size()) * size || row > kGridRows - size) {
         return ApiStatus::OutOfRange;
     }
     int charCol = col;
