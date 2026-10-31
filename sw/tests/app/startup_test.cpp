@@ -156,8 +156,17 @@ TEST(Startup, SR_FW_01_LoadsTilesOnceBeforeFirstPresentThenMenu) {
     const auto menu = std::find(calls.begin(), calls.end(), "context");
     ASSERT_NE(present, calls.end());
     EXPECT_LT(load, present);
-    ASSERT_NE(menu, calls.end());  // setState(Menu) sets the Menu context (SR-INP-09)
+    ASSERT_NE(menu, calls.end());  // bootFinished() sets the Menu context (SR-INP-09)
     EXPECT_LT(present, menu);      // the splash came first
+}
+
+TEST(Startup, SR_FW_01_AppBootShowsSplashForOneSecondThenMenu) {
+    std::vector<std::string> calls;
+    Log log;
+    EXPECT_EQ(runArcade(Options{}, fakeFactory(calls, TICK_RATE + 1), log.file()), 0);
+    const auto menu = std::find(calls.begin(), calls.end(), "context");
+    ASSERT_NE(menu, calls.end());
+    EXPECT_EQ(std::count(calls.begin(), menu, "present"), TICK_RATE);
 }
 
 TEST(Startup, SF_02_FailingBackendPrintsStepAndExitsNonZeroWithin5s) {

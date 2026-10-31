@@ -9,7 +9,6 @@
 #include "assets/tile_set.hpp"
 #include "engine/app.hpp"
 #include "engine/game_loop.hpp"
-#include "engine/screens/boot_screen.hpp"
 #include "engine/tick_clock.hpp"
 #include "games/game_registry.hpp"
 
@@ -63,16 +62,14 @@ int runArcade(const Options& options, const BackendFactory& factory, std::FILE* 
     MonotonicClock clock;
     GameLoop loop(api, clock, GameLoopConfig{options.profile});
 
-    // Section 3.1.1 screen 1, then the menu (SR-FW-01). App has no Boot-to-Menu transition, so
-    // the splash runs here. A keyboard check belongs to the FPGA backend (#37): SDL always has one.
-    BootScreen boot;
-    loop.setScreen(&boot);
+    // Section 3.1.1 screen 1, then the menu (SR-FW-01). A keyboard check belongs to the FPGA
+    // backend (#37): SDL always has one.
+    loop.setScreen(&app);
     for (int tick = 1; tick <= kSplashTicks && !stop(); ++tick) {
-        boot.setProgress(tick, kSplashTicks);
+        app.boot().setProgress(tick, kSplashTicks);
         loop.runTick();
     }
-    app.setState(AppState::Menu);
-    loop.setScreen(&app);
+    app.bootFinished();
     loop.run(stop);
 
     if (options.profile) {
