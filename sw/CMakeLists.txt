@@ -18,6 +18,7 @@ endif()
 
 add_subdirectory(input)
 add_subdirectory(hal)
+add_subdirectory(assets)
 add_subdirectory(engine)
 add_subdirectory(tools)
 if(ARCADE_BACKEND_SDL)
