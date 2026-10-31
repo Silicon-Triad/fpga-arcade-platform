@@ -8,7 +8,9 @@
 #include "assets/palette.hpp"
 #include "assets/tile_set.hpp"
 #include "engine/app.hpp"
+#include "engine/file_system.hpp"
 #include "engine/game_loop.hpp"
+#include "engine/high_score_store.hpp"
 #include "engine/tick_clock.hpp"
 #include "games/game_registry.hpp"
 
@@ -19,8 +21,18 @@ namespace {
 // bar fills over that time. Far inside BOOT_LIMIT (SR-FW-01).
 constexpr int kSplashTicks = TICK_RATE;
 
-// Issue #76 supplies the real lookup.
-std::uint32_t noBestScore(std::uint8_t) { return 0; }
+// The high-score table the menu reads its BEST line from (SR-FW-08, SR-UI-02). Loaded once at
+// start-up; BestScoreFn is a plain function pointer, so the lookup reaches it through here.
+const HighScoreStore* gBestScores = nullptr;
+
+// SR-UI-02: the best score is rank 1 of the game's table, or 0 while the table is empty.
+std::uint32_t bestScoreOf(std::uint8_t gameId) {
+    if (gBestScores == nullptr) {
+        return 0;
+    }
+    const auto& table = gBestScores->table(gameId);
+    return table.count > 0 ? table.rows[0].score : 0;
+}
 
 int fail(std::FILE* log, std::string_view step) {
     // SF-02: the message and the failed step, then a non-zero exit.
@@ -58,7 +70,13 @@ int runArcade(const Options& options, const BackendFactory& factory, std::FILE* 
         return fail(log, kStepLoadTiles);
     }
 
-    App app(api, kGameRegistry.data(), kGameRegistry.size(), &noBestScore);
+    // SR-FW-08: a missing or unreadable HISCORE_FILE gives an empty table, never a failure.
+    static HighScoreStore scores;
+    PosixFileSystem fs;
+    scores.load(fs);
+    gBestScores = &scores;
+
+    App app(api, kGameRegistry.data(), kGameRegistry.size(), &bestScoreOf);
     MonotonicClock clock;
     GameLoop loop(api, clock, GameLoopConfig{options.profile});
 

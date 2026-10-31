@@ -16,6 +16,7 @@
 #include "assets/game_tiles.hpp"
 #include "assets/text_tiles.hpp"
 #include "engine/screens/boot_screen.hpp"
+#include "engine/ui_layout.hpp"
 
 namespace arcade {
 namespace {
@@ -205,8 +206,12 @@ void expectText(Tilemap& map, int col, int row, std::string_view text, TextScale
               ApiStatus::Ok);
 }
 
+// Section 3.1.1 common layout: the border frame, as drawFrame() draws it (tested in ui_layout).
 Tilemap goldenBase() {
-    Tilemap golden{};
+    std::vector<std::string> calls;
+    RecordingApi frame(calls);
+    (void)drawFrame(frame);
+    Tilemap golden = frame.map;
     expectText(golden, 42, 34, "FPGA ARCADE", TextScale::X4);
     expectText(golden, 47, 44, "SILICON TRIAD - DE1-SOC - 1024X768", TextScale::X1);
     expectText(golden, 58, 53, "STARTING...", TextScale::X1);
@@ -237,6 +242,17 @@ TEST(BootScreen, Screen1_BarFillsToColumn95) {
     EXPECT_EQ(api.map[50][32], assets::kTileMenuGreen);
     EXPECT_EQ(api.map[50][95], assets::kTileMenuGreen);
     EXPECT_EQ(api.map[50][96], assets::kFontFirstTile);
+}
+
+TEST(BootScreen, Screen1_HasBorderFrame) {
+    std::vector<std::string> calls;
+    RecordingApi api(calls);
+    BootScreen boot;
+    boot.render(api);
+    EXPECT_EQ(api.map[0][1], assets::kTileFrame);
+    EXPECT_EQ(api.map[kGridRows - 1][1], assets::kTileFrame);
+    EXPECT_EQ(api.map[1][0], assets::kTileFrame);
+    EXPECT_EQ(api.map[1][kGridCols - 1], assets::kTileFrame);
 }
 
 TEST(BootScreen, Screen1_NoKeyboardMessageOnRow60) {

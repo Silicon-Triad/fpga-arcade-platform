@@ -38,7 +38,14 @@ BackendStart startBackend(const arcade::Options& options) {
     static arcade::KeyBindings bindings;
     static const arcade::BindingLookup lookup(bindings);
     static const arcade::FontTextLayout textLayout;
-    (void)bindings.loadOverrideFile();  // SC-05
+    // SC-05: ignored lines keep their defaults; say so, so that a typo is not silent.
+    const arcade::KeymapLoadResult keymap = bindings.loadOverrideFile();
+    if (keymap.ignored > 0) {
+        (void)std::fprintf(stderr, "warning: %.*s: %zu line(s) ignored, first at line %zu\n",
+                           static_cast<int>(arcade::KeyBindings::kKeymapFile.size()),
+                           arcade::KeyBindings::kKeymapFile.data(), keymap.ignored,
+                           keymap.firstIgnoredLine);
+    }
     std::unique_ptr<arcade::SdlBackend> sdl = arcade::SdlBackend::open(lookup, &textLayout);
     if (sdl == nullptr) {
         start.failedStep = kStepOpenSdl;

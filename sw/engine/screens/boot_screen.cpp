@@ -37,6 +37,7 @@ void BootScreen::update(const InputFrame&) noexcept {}
 
 void BootScreen::render(EngineApi& api) noexcept {
     api.clear(assets::kFontFirstTile);
+    (void)drawFrame(api);  // Section 3.1.1 common layout: every screen but 10b has the frame.
     drawCentred(api, kLogoRow, kLogo, TextScale::X4);
     drawCentred(api, kSubtitleRow, kSubtitle, TextScale::X1);
     if (barCells_ > 0) {
