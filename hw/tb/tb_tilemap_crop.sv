@@ -79,8 +79,13 @@ module tb_tilemap_crop;
         if (vis_vga && !blank_vga) begin
           hits[row][col]++;
           if (int'(addr_vga) != row * GRID_COLS + col)
-            fail($sformatf("SR-REN-08 x=%0d y=%0d: cell_addr %0d, expected %0d", x, y, addr_vga,
-                           row * GRID_COLS + col));
+            fail($sformatf(
+                 "SR-REN-08 x=%0d y=%0d: cell_addr %0d, expected %0d",
+                 x,
+                 y,
+                 addr_vga,
+                 row * GRID_COLS + col
+                 ));
         end else begin
           fail($sformatf("SR-REN-08 x=%0d y=%0d: pixel in 640x480 frame not displayed", x, y));
         end
@@ -96,8 +101,13 @@ module tb_tilemap_crop;
         line = {line, (hits[r][c] != 0) ? "#" : "."};
         if (hits[r][c] != 0) shown++;
         if (expect_shown && hits[r][c] != TILE_SIZE * TILE_SIZE)
-          fail($sformatf("SR-REN-08 cell (%0d,%0d): %0d pixels, expected %0d", c, r,
-                         hits[r][c], TILE_SIZE * TILE_SIZE));
+          fail($sformatf(
+               "SR-REN-08 cell (%0d,%0d): %0d pixels, expected %0d",
+               c,
+               r,
+               hits[r][c],
+               TILE_SIZE * TILE_SIZE
+               ));
         if (!expect_shown && hits[r][c] != 0)
           fail($sformatf("SR-REN-08 cell (%0d,%0d) displayed outside 80x60", c, r));
       end
@@ -120,8 +130,14 @@ module tb_tilemap_crop;
         row = y / TILE_SIZE;
         in_crop = (col < BRINGUP_COLS) && (row < BRINGUP_ROWS);
         if (vis_vga != in_crop || blank_vga != !in_crop)
-          fail($sformatf("SR-REN-08 x=%0d y=%0d: visible=%0b blank=%0b, crop expects %0b", x,
-                         y, vis_vga, blank_vga, in_crop));
+          fail($sformatf(
+               "SR-REN-08 x=%0d y=%0d: visible=%0b blank=%0b, crop expects %0b",
+               x,
+               y,
+               vis_vga,
+               blank_vga,
+               in_crop
+               ));
         if (int'(addr_vga) != row * GRID_COLS + col)
           fail($sformatf("TBL-Tilemap x=%0d y=%0d: cell_addr %0d", x, y, addr_vga));
         if (!vis_xga || blank_xga || int'(addr_xga) != row * GRID_COLS + col)

@@ -24,7 +24,7 @@ module tilemap_crop #(
     // V_ACTIVE 768 fits in 10 bits, SR-VGA-03).
     input logic [10:0] vga_x,
     input logic [ 9:0] vga_y,
-    input logic        blank_in,  // active-high, 1 = blanking (as tile_renderer_pipeline)
+    input logic        blank_in, // active-high, 1 = blanking (as tile_renderer_pipeline)
 
     // Byte offset of the cell inside one tilemap bank (TBL-Tilemap, SR-REN-01).
     output logic [$clog2(arcade_regs_pkg::TILEMAP_BANK_SIZE)-1:0] cell_addr,
@@ -53,8 +53,8 @@ module tilemap_crop #(
   // (only possible with a bad VGA timing) has non-zero high bits and is treated as cropped.
   logic [10-SUB_W:0] col_full;
   logic [ 9-SUB_W:0] row_full;
-  logic [COL_W-1:0] col;
-  logic [ROW_W-1:0] row;
+  logic [ COL_W-1:0] col;
+  logic [ ROW_W-1:0] row;
   assign col_full = vga_x[10:SUB_W];
   assign row_full = vga_y[9:SUB_W];
   assign col = col_full[COL_W-1:0];
