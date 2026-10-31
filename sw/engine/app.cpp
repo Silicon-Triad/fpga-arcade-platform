@@ -27,6 +27,34 @@ std::optional<InputContext> contextFor(AppState state, InputContext playContext)
     }
 }
 
+// Stand-in so that no unfinished screen traps the player (SR-UI-07, SR-UI-12): Back returns to
+// the menu. Each issue removes its state when it implements the real keys. Not listed: Boot, Menu,
+// HardwareNotReady (SF-02 exits) and ShuttingDown (section 3.1.1 screen 10b: no keys work).
+bool backReturnsToMenu(AppState state) noexcept {
+    switch (state) {
+        case AppState::Playing:          // #10
+        case AppState::Paused:           // #10
+        case AppState::GameOver:         // #10
+        case AppState::HighScores:       // #12
+        case AppState::Initials:         // #12
+        case AppState::KeyboardLost:     // #13
+        case AppState::ShutdownConfirm:  // #15
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool backPressed(const InputFrame& input) noexcept {
+    for (std::size_t i = 0; i < input.count; ++i) {
+        const InputEvent& event = input.events[i];
+        if (event.type == InputEventType::KeyDown && event.action == Action::Back) {
+            return true;
+        }
+    }
+    return false;
+}
+
 }  // namespace
 
 App::App(EngineApi& api, const GameRegistryRow* rows, std::size_t rowCount, BestScoreFn bestScore)
@@ -45,6 +73,12 @@ void App::setState(AppState state) noexcept {
     state_ = state;
     if (const auto context = contextFor(state, playContext_)) {
         api_.setInputContext(*context);  // SR-INP-09
+    }
+}
+
+void App::bootFinished() noexcept {
+    if (state_ == AppState::Boot) {
+        setState(AppState::Menu);  // SR-FW-01
     }
 }
 
@@ -77,6 +111,10 @@ Screen* App::screenFor(AppState state) noexcept {
 }
 
 void App::update(const InputFrame& input) noexcept {
+    if (backReturnsToMenu(state_) && backPressed(input)) {
+        setState(AppState::Menu);  // SR-UI-07, SR-UI-12
+        return;
+    }
     screenFor(state_)->update(input);
     if (state_ != AppState::Menu) {
         return;

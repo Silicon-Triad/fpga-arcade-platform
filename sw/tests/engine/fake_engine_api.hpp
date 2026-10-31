@@ -34,8 +34,16 @@ class FakeEngineApi final : public EngineApi {
         }
         texts.clear();
     }
-    ApiStatus present() noexcept override { return ApiStatus::Ok; }
-    InputFrame pollInput() noexcept override { return InputFrame{}; }
+    ApiStatus present() noexcept override {
+        ++presents;
+        return ApiStatus::Ok;
+    }
+    InputFrame pollInput() noexcept override {
+        ++polls;
+        const InputFrame frame = nextInput;
+        nextInput = InputFrame{};
+        return frame;
+    }
     void playSound(EffectId) noexcept override { ++sounds; }
     void setMute(bool) noexcept override {}
     ApiStatus loadTiles(const TileSet&, const Palette&) noexcept override { return ApiStatus::Ok; }
@@ -49,6 +57,9 @@ class FakeEngineApi final : public EngineApi {
     std::vector<std::string> texts;
     std::vector<InputContext> contexts;
     int sounds = 0;
+    InputFrame nextInput;  ///< Returned once by the next pollInput().
+    int polls = 0;
+    int presents = 0;
 };
 
 }  // namespace arcade

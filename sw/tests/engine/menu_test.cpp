@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "engine/app.hpp"
+#include "engine/game_loop.hpp"
 #include "engine/preview_api.hpp"
 #include "fake_engine_api.hpp"
 
@@ -131,6 +132,82 @@ TEST_F(MenuTest, SR_UI_02_ShowsBestScoreCaption) {
     app.render(api);
     const auto found = std::find(api.texts.begin(), api.texts.end(), "74:BEST 000000 - SNAKE");
     EXPECT_NE(found, api.texts.end());
+}
+
+class ZeroClock final : public TickClock {
+  public:
+    std::uint64_t nowUs() noexcept override { return 0; }
+};
+
+class BackFrom : public ::testing::TestWithParam<AppState> {};
+
+TEST_P(BackFrom, SR_UI_07_SR_UI_12_BackReturnsToMenu) {
+    FakeEngineApi api;
+    App app(api, kRows.data(), kRows.size(), &noScore);
+    app.setState(GetParam());
+    app.update(InputFrame{});
+    EXPECT_EQ(app.state(), GetParam());
+    app.update(press(Action::Back));
+    EXPECT_EQ(app.state(), AppState::Menu);
+    EXPECT_EQ(api.contexts.back(), InputContext::Menu);
+}
+
+INSTANTIATE_TEST_SUITE_P(Placeholders, BackFrom,
+                         ::testing::Values(AppState::Playing, AppState::Paused, AppState::GameOver,
+                                           AppState::HighScores, AppState::Initials,
+                                           AppState::KeyboardLost, AppState::ShutdownConfirm));
+
+TEST(App, SR_UI_14_ShuttingDownIgnoresBack) {  // section 3.1.1 screen 10b: no keys work
+    FakeEngineApi api;
+    App app(api, kRows.data(), kRows.size(), &noScore);
+    app.setState(AppState::ShuttingDown);
+    app.update(press(Action::Back));
+    EXPECT_EQ(app.state(), AppState::ShuttingDown);
+}
+
+TEST(App, SR_UI_12_ScoresThenBackReturnsToMenuWithLoopTicking) {
+    FakeEngineApi api;
+    App app(api, kRows.data(), kRows.size(), &noScore);
+    app.setState(AppState::Menu);
+    ZeroClock clock;
+    GameLoop loop(api, clock);
+    loop.setScreen(&app);
+    api.nextInput = press(Action::Up);  // wraps to SCORES
+    loop.runTick();
+    api.nextInput = press(Action::Select);
+    loop.runTick();
+    ASSERT_EQ(app.state(), AppState::HighScores);
+    for (int i = 0; i < 10; ++i) {  // the loop keeps polling and presenting on the placeholder
+        loop.runTick();
+    }
+    EXPECT_EQ(api.polls, 12);
+    EXPECT_EQ(api.presents, 12);
+    api.nextInput = press(Action::Back);
+    loop.runTick();
+    EXPECT_EQ(app.state(), AppState::Menu);
+    loop.runTick();
+    EXPECT_EQ(api.presents, 14);
+}
+
+TEST(App, SR_FW_01_BootGoesToMenuOnlyWhenStartupIsDone) {
+    FakeEngineApi api;
+    App app(api, kRows.data(), kRows.size(), &noScore);
+    for (int i = 0; i < 5; ++i) {
+        app.update(press(Action::Select));
+        app.update(press(Action::Back));
+    }
+    EXPECT_EQ(app.state(), AppState::Boot);
+    app.bootFinished();
+    EXPECT_EQ(app.state(), AppState::Menu);
+    EXPECT_EQ(api.contexts.back(), InputContext::Menu);
+}
+
+TEST(App, SR_FW_01_BootFinishedLeavesOtherStatesAlone) {
+    FakeEngineApi api;
+    App app(api, kRows.data(), kRows.size(), &noScore);
+    app.setState(AppState::Paused);
+    app.bootFinished();
+    EXPECT_EQ(app.state(), AppState::Paused);
 }
 
 TEST(App, StartsInBootAndEveryStateHasAScreen) {
