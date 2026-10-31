@@ -104,8 +104,8 @@ void HighScoreStore::load(FileSystem& fs, std::string_view path) {
         // SC-04: drop any line that fails validation, keep the rest.
         if (const auto row = parseLine(line)) {
             add(*row);
-            if (row->seq >= nextSeq_ && row->seq < std::numeric_limits<std::uint32_t>::max()) {
-                nextSeq_ = row->seq + 1;
+            if (row->seq >= nextSeq_) {
+                nextSeq_ = std::uint64_t{row->seq} + 1;
             }
         }
     }
@@ -146,13 +146,14 @@ bool HighScoreStore::qualifies(std::uint8_t gameId, std::uint32_t score) const n
 std::optional<std::uint8_t> HighScoreStore::insert(std::uint8_t gameId,
                                                    const std::array<char, INITIALS_LEN>& initials,
                                                    std::uint32_t score) noexcept {
-    if (!qualifies(gameId, score) || !validInitials(initials)) {
+    // SR-FW-10: refuse once every seq is used, so two entries never share one and the
+    // older entry always wins a tie.
+    if (nextSeq_ > std::numeric_limits<std::uint32_t>::max() || !qualifies(gameId, score) ||
+        !validInitials(initials)) {
         return std::nullopt;
     }
-    HighScoreRow row{gameId, kRankMin, initials, score, nextSeq_};
-    if (nextSeq_ < std::numeric_limits<std::uint32_t>::max()) {
-        ++nextSeq_;
-    }
+    HighScoreRow row{gameId, kRankMin, initials, score, static_cast<std::uint32_t>(nextSeq_)};
+    ++nextSeq_;
     add(row);
     const GameTable& t = tables_[gameId];
     for (std::size_t i = 0; i < t.count; ++i) {

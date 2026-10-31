@@ -41,6 +41,9 @@ bool PosixFileSystem::writeAll(int fd, std::string_view data) noexcept {
             }
             return false;
         }
+        if (n == 0) {
+            return false;  // SR-FW-09: no progress; fail rather than loop forever.
+        }
         data.remove_prefix(static_cast<std::size_t>(n));
     }
     return true;

@@ -210,6 +210,23 @@ TEST(HighScoreStore, SR_FW_10_NewEntryGetsSeqAfterLoadedSeq) {
     EXPECT_EQ(store.table(kGameIdSnake).rows[1].seq, 42u);
 }
 
+TEST(HighScoreStore, SR_FW_10_LoadedMaxSeqBlocksFurtherInserts) {
+    FakeFileSystem fs;
+    HighScoreStore store = loadFrom(fs, "0,1,OLD,100,4294967295\n");
+    EXPECT_FALSE(store.insert(kGameIdSnake, ini("NEW"), 200));
+    ASSERT_EQ(store.table(kGameIdSnake).count, 1u);
+    EXPECT_EQ(initialsOf(store.table(kGameIdSnake).rows[0]), "OLD");
+}
+
+TEST(HighScoreStore, SR_FW_10_LastSeqIsUsedOnceThenInsertsStop) {
+    FakeFileSystem fs;
+    HighScoreStore store = loadFrom(fs, "0,1,OLD,100,4294967294\n");
+    EXPECT_EQ(store.insert(kGameIdSnake, ini("NEW"), 100), std::optional<std::uint8_t>(2));
+    EXPECT_EQ(store.table(kGameIdSnake).rows[1].seq, 4294967295u);
+    EXPECT_FALSE(store.insert(kGameIdSnake, ini("DUP"), 100));
+    EXPECT_EQ(store.table(kGameIdSnake).count, 2u);
+}
+
 TEST(HighScoreStore, SC_04_InsertRejectsInvalidEntries) {
     HighScoreStore store;
     EXPECT_FALSE(store.insert(kGameIdSnake, ini("ab1"), 10));

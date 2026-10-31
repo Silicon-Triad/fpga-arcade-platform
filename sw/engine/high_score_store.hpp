@@ -51,7 +51,8 @@ class HighScoreStore {
     bool qualifies(std::uint8_t gameId, std::uint32_t score) const noexcept;
 
     /// Adds an entry with the next seq and returns its rank, or std::nullopt if it does not
-    /// qualify or is invalid (SR-FW-10, SC-04). An 11th entry drops the lowest.
+    /// qualify, is invalid, or every seq is used (SR-FW-10, SC-04). An 11th entry drops the
+    /// lowest.
     std::optional<std::uint8_t> insert(std::uint8_t gameId,
                                        const std::array<char, INITIALS_LEN>& initials,
                                        std::uint32_t score) noexcept;
@@ -66,7 +67,9 @@ class HighScoreStore {
     void add(const HighScoreRow& row) noexcept;
 
     std::array<GameTable, kHighScoreGameCount> tables_{};
-    std::uint32_t nextSeq_ = 0;
+    /// Next seq to assign; above UINT32 max once every seq is used, so no seq repeats
+    /// (SR-FW-10).
+    std::uint64_t nextSeq_ = 0;
 };
 
 }  // namespace arcade
