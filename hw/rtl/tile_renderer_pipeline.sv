@@ -1,33 +1,41 @@
-`timescale 1ns / 1ps
-
-// Tile Renderer Pipeline: Stages 2-4 (Pattern Read, Palette Read, RGB Output)
-// Covers SR-REN-04, SR-REN-05, SR-REN-06, TBL-TilePattern, TBL-Palette.
+// Tile Renderer pipeline: tile pattern RAM, palette and the 4-stage pixel pipeline.
+// Implements SR-REN-04, SR-REN-05, SR-REN-06, TBL-TilePattern, TBL-Palette, CON-05, CON-06.
+// Refs #30.
+//
+// Stages (SR-REN-06, N = 4 cycles from tilemap read to colour output):
+//   stage 1  tile_index arrives from the tilemap read; pixel x/y within the tile are registered
+//   stage 2  pattern RAM read: one 32-bit row (8 px x 4 bpp) of tile tile_index
+//   stage 3  palette RAM read: the 4-bit index of pixel x selects one 0x00RRGGBB entry
+//   stage 4  colour output: R, G, B unpacked and registered; black while blanking
+// HSYNC, VSYNC and blank go through a 4-deep shift register, so they stay aligned with the
+// colour (SR-REN-06). A new pixel enters every cycle, so all four stages are busy.
 module tile_renderer_pipeline (
     input logic clk,
-    input logic rst,  // Synchronous reset
+    input logic rst,  // synchronous reset (R-4.2.6)
 
-    // VGA Controller Inputs (Cycle 0)
+    // VGA Controller inputs (cycle 0). Only the pixel position inside the tile is used.
     input logic [9:0] vga_x,
     input logic [9:0] vga_y,
     input logic       hsync_in,
     input logic       vsync_in,
     input logic       blank_in,
 
-    // Stage 1 Input (Cycle 1): Tile index from Tilemap Buffer
-    input logic [7:0] tile_index,
+    // Stage 1 input (cycle 1): tile index from the tilemap read (SR-REN-04: up to 256 patterns)
+    input logic [$clog2(arcade_regs_pkg::TILE_PATTERN_COUNT)-1:0] tile_index,
 
-    // Pattern RAM Write Port (mapped to 0x6000-0x7FFF)
-    input logic        pat_wr_en,
-    input logic [10:0] pat_wr_addr,  // 2048 x 32-bit words (8KB total)
+    // Pattern RAM write port (TBL-TilePattern, §3.1.4 offset 0x6000): one 32-bit row per word
+    input logic pat_wr_en,
+    // Word address = byte offset / 4: 8192 bytes (SR-REN-04) as 32-bit words is 2048 words.
+    input logic [$clog2(arcade_regs_pkg::TILE_PATTERN_RAM_SIZE * 8 / 32)-1:0] pat_wr_addr,
     input logic [31:0] pat_wr_data,
-    input logic [ 3:0] pat_wr_strb,  // Byte enables for 32-bit writes
+    input logic [3:0] pat_wr_strb,  // byte enables
 
-    // Palette RAM Write Port (mapped to 0x8000)
-    input logic        pal_wr_en,
-    input logic [ 3:0] pal_wr_addr,  // 16 entries
-    input logic [31:0] pal_wr_data,  // 0x00RRGGBB
+    // Palette RAM write port (TBL-Palette, §3.1.4 offset 0x8000)
+    input logic                                             pal_wr_en,
+    input logic [$clog2(arcade_regs_pkg::PALETTE_SIZE)-1:0] pal_wr_addr,
+    input logic [                                     31:0] pal_wr_data,  // 0x00RRGGBB (CON-06)
 
-    // VGA Output (Cycle 4)
+    // VGA output (cycle 4)
     output logic [7:0] vga_r,
     output logic [7:0] vga_g,
     output logic [7:0] vga_b,
@@ -36,115 +44,127 @@ module tile_renderer_pipeline (
     output logic       blank_out
 );
 
-  // Sink unused top bits to satisfy Verilator without pragmas
+  // ---------------------------------------------------------------------------
+  // Sizes, all derived from the frozen package (R-4.2.7, R-4.2.8)
+  // ---------------------------------------------------------------------------
+  // verilog_lint: waive-start parameter-name-style (R-4.2.3: UPPER_SNAKE_CASE, as the package)
+  localparam int TILE_SIZE = 8;  // SR-REN-04, CON-05, App. A TILE_SIZE: 8 x 8 px
+  localparam int BITS_PER_PIXEL = 8 / arcade_regs_pkg::PIXELS_PER_BYTE;  // §3.1.4: 4 bpp
+  localparam int BYTES_PER_ROW = TILE_SIZE / arcade_regs_pkg::PIXELS_PER_BYTE;  // 4
+  localparam int ROWS_PER_TILE = arcade_regs_pkg::BYTES_PER_TILE_PATTERN / BYTES_PER_ROW;  // 8
+  localparam int PATTERN_WORDS = arcade_regs_pkg::TILE_PATTERN_RAM_SIZE / BYTES_PER_ROW;  // 2048
+  localparam int PATTERN_ADDR_W = $clog2(PATTERN_WORDS);  // 11
+  localparam int PALETTE_ADDR_W = $clog2(arcade_regs_pkg::PALETTE_SIZE);  // SR-REN-05: 4-bit index
+  localparam int SUB_W = $clog2(TILE_SIZE);  // pixel position inside a tile: 3 bits
+  localparam int NIBBLE_SEL_W = $clog2(BITS_PER_PIXEL);  // x * 4 = x << 2
 
-  // Explicit constants imported strictly from the package
-  localparam int PalSize = arcade_regs_pkg::PALETTE_SIZE;
+  // verilog_lint: waive-stop parameter-name-style
 
-  // =========================================================================
-  // Memory Declarations (SR-REN-04, SR-REN-05)
-  // =========================================================================
+  // ---------------------------------------------------------------------------
+  // Memories (SR-REN-04, SR-REN-05), written by the bridge, loaded at start-up
+  // ---------------------------------------------------------------------------
+  // Pattern RAM: word {tile, row} holds 8 pixels; pixel x is nibble x (low nibble = left).
+  logic [31:0] pattern_ram[PATTERN_WORDS];
+  // Palette RAM: 16 entries packed 0x00RRGGBB.
+  logic [31:0] palette_ram[arcade_regs_pkg::PALETTE_SIZE];
 
-  // Pattern RAM: 2048 entries of 32 bits (256 tiles * 8 rows = 8KB)
-  logic [31:0] pattern_ram[2048];
-
-  // Palette RAM: 16 entries of 32 bits (0x00RRGGBB)
-  logic [31:0] palette_ram[PalSize];
-
-  // =========================================================================
-  // Pipeline Registers
-  // =========================================================================
-
-  // Shift registers for sync and blank signals to achieve exactly N=4 latency
-  logic [4:1] hsync_shift;
+  // ---------------------------------------------------------------------------
+  // Pipeline registers
+  // ---------------------------------------------------------------------------
+  logic [4:1] hsync_shift;  // [n] = value at stage n
   logic [4:1] vsync_shift;
   logic [4:1] blank_shift;
 
-  // Shift registers for pixel coordinates (x[2:0] and y[2:0] within the tile)
-  logic [2:0] x_shift[1:2];
-  logic [2:0] y_shift[1:1];
+  logic [SUB_W-1:0] x_stage1_q, x_stage2_q;
+  logic [SUB_W-1:0] y_stage1_q;
 
-  // Pipeline Data
-  logic [31:0] stage2_pattern_row;
-  logic [3:0] stage3_palette_idx;
-  logic [31:0] stage4_rgb;
+  logic [31:0] stage2_pattern_row_q;
+  logic [PALETTE_ADDR_W-1:0] stage2_palette_idx;
+  logic [31:0] stage3_rgb_q;
 
-  // Combinational extraction of the palette index
-  // TBL-TilePattern: 2 pixels/byte; low nibble = left pixel.
-  assign stage3_palette_idx = stage2_pattern_row[{x_shift[2], 2'b00}+:4];
+  // TBL-TilePattern, §3.1.4: 2 px/byte, low nibble = left pixel, so pixel x is nibble x.
+  assign stage2_palette_idx = stage2_pattern_row_q[{
+    x_stage2_q, {NIBBLE_SEL_W{1'b0}}
+  }+:BITS_PER_PIXEL];
 
-  // =========================================================================
-  // Memory Write Ports
-  // =========================================================================
+  // ---------------------------------------------------------------------------
+  // Memory write ports
+  // ---------------------------------------------------------------------------
   always_ff @(posedge clk) begin
     if (pat_wr_en) begin
-      if (pat_wr_strb[0]) pattern_ram[pat_wr_addr][7:0] <= pat_wr_data[7:0];
-      if (pat_wr_strb[1]) pattern_ram[pat_wr_addr][15:8] <= pat_wr_data[15:8];
-      if (pat_wr_strb[2]) pattern_ram[pat_wr_addr][23:16] <= pat_wr_data[23:16];
-      if (pat_wr_strb[3]) pattern_ram[pat_wr_addr][31:24] <= pat_wr_data[31:24];
+      for (int b = 0; b < 4; b++) begin
+        if (pat_wr_strb[b]) pattern_ram[pat_wr_addr][8*b+:8] <= pat_wr_data[8*b+:8];
+      end
     end
-    if (pal_wr_en) begin
-      palette_ram[pal_wr_addr] <= pal_wr_data;
-    end
+    if (pal_wr_en) palette_ram[pal_wr_addr] <= pal_wr_data;
   end
 
-  // =========================================================================
-  // 4-Stage Read Pipeline (SR-REN-06)
-  // =========================================================================
+  // ---------------------------------------------------------------------------
+  // 4-stage read pipeline (SR-REN-06)
+  // ---------------------------------------------------------------------------
   always_ff @(posedge clk) begin
     if (rst) begin
       hsync_shift <= '0;
       vsync_shift <= '0;
-      blank_shift <= '1;  // Blank active by default
-      vga_r <= '0;
-      vga_g <= '0;
-      vga_b <= '0;
+      blank_shift <= '1;  // blank until real timing flows through
+      vga_r       <= '0;
+      vga_g       <= '0;
+      vga_b       <= '0;
     end else begin
-      // -----------------------------------------------------------------
-      // Cycle 0 -> 1 (Stage 1 tracking)
-      // -----------------------------------------------------------------
-      hsync_shift[1]     <= hsync_in;
-      vsync_shift[1]     <= vsync_in;
-      blank_shift[1]     <= blank_in;
-      x_shift[1]         <= vga_x[2:0];
-      y_shift[1]         <= vga_y[2:0];
+      // Stage 1: register pixel position and syncs alongside the tilemap read.
+      hsync_shift[1]       <= hsync_in;
+      vsync_shift[1]       <= vsync_in;
+      blank_shift[1]       <= blank_in;
+      x_stage1_q           <= vga_x[SUB_W-1:0];
+      y_stage1_q           <= vga_y[SUB_W-1:0];
 
-      // -----------------------------------------------------------------
-      // Cycle 1 -> 2: Stage 2 (Pattern Read)
-      // -----------------------------------------------------------------
-      stage2_pattern_row <= pattern_ram[{tile_index, y_shift[1]}];
+      // Stage 2: pattern read, word address {tile_index, row} (SR-REN-04).
+      stage2_pattern_row_q <= pattern_ram[{tile_index, y_stage1_q}];
+      x_stage2_q           <= x_stage1_q;
+      hsync_shift[2]       <= hsync_shift[1];
+      vsync_shift[2]       <= vsync_shift[1];
+      blank_shift[2]       <= blank_shift[1];
 
-      hsync_shift[2]     <= hsync_shift[1];
-      vsync_shift[2]     <= vsync_shift[1];
-      blank_shift[2]     <= blank_shift[1];
-      x_shift[2]         <= x_shift[1];
+      // Stage 3: palette read by the 4-bit index (SR-REN-05).
+      stage3_rgb_q         <= palette_ram[stage2_palette_idx];
+      hsync_shift[3]       <= hsync_shift[2];
+      vsync_shift[3]       <= vsync_shift[2];
+      blank_shift[3]       <= blank_shift[2];
 
-      // -----------------------------------------------------------------
-      // Cycle 2 -> 3: Stage 3 (Palette Read)
-      // -----------------------------------------------------------------
-      stage4_rgb         <= palette_ram[stage3_palette_idx];
-
-      hsync_shift[3]     <= hsync_shift[2];
-      vsync_shift[3]     <= vsync_shift[2];
-      blank_shift[3]     <= blank_shift[2];
-
-      // -----------------------------------------------------------------
-      // Cycle 3 -> 4: Stage 4 (Colour Output)
-      // -----------------------------------------------------------------
-      vga_r              <= stage4_rgb[23:16];
-      vga_g              <= stage4_rgb[15:8];
-      vga_b              <= stage4_rgb[7:0];
-
-      hsync_shift[4]     <= hsync_shift[3];
-      vsync_shift[4]     <= vsync_shift[3];
-      blank_shift[4]     <= blank_shift[3];
+      // Stage 4: colour output, 0x00RRGGBB at 8 bits/channel (CON-06). No picture is sent
+      // during blanking (glossary "Blanking"), so RGB is forced to black there.
+      if (blank_shift[3]) begin
+        vga_r <= '0;
+        vga_g <= '0;
+        vga_b <= '0;
+      end else begin
+        vga_r <= stage3_rgb_q[arcade_regs_pkg::PALETTE_RED_SHIFT+:8];
+        vga_g <= stage3_rgb_q[arcade_regs_pkg::PALETTE_GREEN_SHIFT+:8];
+        vga_b <= stage3_rgb_q[arcade_regs_pkg::PALETTE_BLUE_SHIFT+:8];
+      end
+      hsync_shift[4] <= hsync_shift[3];
+      vsync_shift[4] <= vsync_shift[3];
+      blank_shift[4] <= blank_shift[3];
     end
   end
 
-  // Map delayed syncs to module outputs
   assign hsync_out = hsync_shift[4];
   assign vsync_out = vsync_shift[4];
   assign blank_out = blank_shift[4];
 
-  wire _unused = &{1'b0, vga_x[9:3], vga_y[9:3], stage4_rgb[31:24]};
+  // Elaboration checks: one 32-bit word is one tile row, and the word address is exactly
+  // {tile_index, row}, so the port widths above agree with the derived sizes.
+  if (BYTES_PER_ROW * 8 != 32 || PATTERN_ADDR_W != $bits(
+          pat_wr_addr
+      ) || PATTERN_ADDR_W != $bits(
+          tile_index
+      ) + $clog2(
+          ROWS_PER_TILE
+      )) begin : g_bad_size
+    $error("tile_renderer_pipeline: pattern RAM geometry does not match arcade_regs_pkg");
+  end
+
+  // Bits not used by design: tile-grid part of x/y (the tilemap read uses them upstream)
+  // and the unused top byte of 0x00RRGGBB.
+  wire _unused = &{1'b0, vga_x[9:SUB_W], vga_y[9:SUB_W], stage3_rgb_q[31:24]};
 endmodule
