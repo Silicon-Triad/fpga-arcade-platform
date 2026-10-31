@@ -149,7 +149,8 @@ ApiStatus SdlBackend::present() noexcept {
     const auto elapsed =
         std::chrono::duration_cast<Frame>(std::chrono::steady_clock::now() - start_);
     std::this_thread::sleep_until(start_ + elapsed + Frame(1));
-    ++frameCount_;
+    frameCount_ = static_cast<std::uint32_t>(
+        std::chrono::duration_cast<Frame>(std::chrono::steady_clock::now() - start_).count());
     return ApiStatus::Ok;
 }
 
@@ -225,9 +226,7 @@ ApiStatus SdlBackend::loadTiles(const TileSet& patterns, const Palette& palette)
             const std::uint8_t byte = patterns[t][p / kPixelsPerByte];
             // TBL-TilePattern: 4 bits/pixel, 2 pixels/byte, low nibble = left pixel.
             const auto index = static_cast<std::uint8_t>(
-                (p % kPixelsPerByte == 0 ? static_cast<unsigned>(byte)
-                                         : static_cast<unsigned>(byte) >> kNibbleBits) &
-                kNibbleMask);
+                (p % kPixelsPerByte == 0 ? byte : byte >> kNibbleBits) & kNibbleMask);
             tilePixels_[t][p] = kOpaque | (palette[index] & kRgbMask);
         }
     }

@@ -302,8 +302,8 @@ TEST_F(InputManagerTest, SR_INP_02_OpensReadOnlyAndNonBlocking) {
     ASSERT_TRUE(im.start());
     ASSERT_FALSE(sys.openFlags.empty());
     for (const int flags : sys.openFlags) {
-        EXPECT_NE(flags & O_NONBLOCK, 0);        // NOLINT(bugprone-signed-bitwise)
-        EXPECT_EQ(flags & O_ACCMODE, O_RDONLY);  // NOLINT(bugprone-signed-bitwise)
+        EXPECT_NE(flags & O_NONBLOCK, 0);
+        EXPECT_EQ(flags & O_ACCMODE, O_RDONLY);
     }
 }
 
@@ -489,7 +489,7 @@ TEST_F(InputManagerReadyTest, SR_INP_08_HeldStateTracked) {
 TEST_F(InputManagerReadyTest, SR_INP_08_EveryKeyCodeHasAState) {
     std::vector<input_event> presses;
     for (std::uint16_t code = 0; code < KEY_CNT; ++code) {
-        presses.push_back(keyEvent(code, 1));  // NOLINT(performance-inefficient-vector-operation)
+        presses.push_back(keyEvent(code, 1));
     }
     reads().push_back(presses);
     EXPECT_EQ(pollAll(im).size(), static_cast<std::size_t>(KEY_CNT));
