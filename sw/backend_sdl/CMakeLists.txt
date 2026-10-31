@@ -7,4 +7,4 @@ add_library(arcade_backend_sdl
     key_codes.cpp
     sdl_backend.cpp)
 target_include_directories(arcade_backend_sdl PUBLIC ${PROJECT_SOURCE_DIR}/sw)
-target_link_libraries(arcade_backend_sdl PUBLIC arcade_api SDL2::SDL2 PRIVATE arcade_warnings)
+target_link_libraries(arcade_backend_sdl PUBLIC arcade_api arcade_assets SDL2::SDL2 PRIVATE arcade_warnings)
