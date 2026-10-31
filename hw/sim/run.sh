@@ -64,8 +64,8 @@ cmd_lint() {
     # R-4.2.2: one module per file, named after the file; lint each as its own top.
     for f in "${rtl[@]}"; do
         echo "verilator lint: $(mod_of "$f")"
-        # -Wno-UNUSEDPARAM: Verilator 5.020 flags every package constant a module does not use.
-        verilator --lint-only -Wall -Wno-UNUSEDPARAM --top-module "$(mod_of "$f")" "${srcs[@]}"
+        # lint.vlt waives UNUSEDPARAM in the frozen package only (see that file).
+        verilator --lint-only -Wall --top-module "$(mod_of "$f")" "$here/lint.vlt" "${srcs[@]}"
     done
     # A package has no module, so lint it through a throwaway module that imports it.
     mkdir -p "$BUILD_DIR/lint"
