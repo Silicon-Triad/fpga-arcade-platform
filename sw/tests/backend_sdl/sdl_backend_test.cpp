@@ -10,6 +10,8 @@
 #include <optional>
 #include <vector>
 
+#include "backend_sdl/font_text_layout.hpp"
+
 namespace arcade {
 namespace {
 
@@ -354,6 +356,18 @@ TEST_F(SdlBackendTest, SR_FW_02_FrameCountAdvancesOncePerPresent) {
         ASSERT_EQ(backend->present(), ApiStatus::Ok);
         EXPECT_EQ(backend->frameCount(), before + 1);
     }
+}
+
+TEST(SdlFontText, SR_FW_12_DrawTextWorksThroughFontLayout) {
+    SDL_SetHint(SDL_HINT_VIDEODRIVER, "dummy");  // CI has no display
+    FakeLookup lookup;
+    const FontTextLayout layout;
+    auto backend = SdlBackend::open(lookup, &layout);
+    ASSERT_NE(backend, nullptr) << SDL_GetError();
+    EXPECT_EQ(backend->drawText(2, 1, "SNAKE", TextScale::X1), ApiStatus::Ok);
+    EXPECT_EQ(backend->drawText(13, 28, "SNAKE", TextScale::X4), ApiStatus::Ok);
+    EXPECT_EQ(backend->drawText(127, 0, "AB", TextScale::X1), ApiStatus::OutOfRange);
+    EXPECT_EQ(backend->drawText(0, 0, "\n", TextScale::X1), ApiStatus::InvalidArgument);
 }
 
 }  // namespace

@@ -12,8 +12,9 @@ SDL2 backend of the Arcade API, PC only. SRS: SR-FW-05 to 07, QA-03.
   reads on the board.
 - `key_action_lookup.hpp`: the injected key → action lookup. The real TBL-KeyBinding lookup is
   #21; until then a caller supplies its own.
-- `text_layout.hpp`: the hook `drawText()` uses. Until #9 provides it, `drawText()` returns
+- `text_layout.hpp`: the hook `drawText()` uses; without one, `drawText()` returns
   `BackendError` and draws nothing.
+- `font_text_layout.hpp`: the real hook, over `assets::textToTiles()` (#9).
 
 Built only when the CMake option `ARCADE_BACKEND_SDL` is ON: the `pc-*` presets turn it on,
 `de1soc-release` leaves it off, so the board build never needs or links SDL2
