@@ -1,6 +1,7 @@
 // Unit tests for the font, mosaic and text layout (issue #9, SR-FW-12, section 3.1.1).
 #include <gtest/gtest.h>
 
+#include <limits>
 #include <map>
 #include <set>
 #include <string>
@@ -126,6 +127,33 @@ TEST(TextTiles, SR_FW_12_BadInputDrawsNothing) {
     EXPECT_EQ(textToTiles(0, 0, std::string(200, 'A'), TextScale::X1, record, &cells),
               ApiStatus::OutOfRange);
     EXPECT_TRUE(cells.empty());
+}
+
+TEST(TextTiles, SR_FW_12_UnsupportedScaleIsRejected) {
+    Cells cells;
+    for (const int scale : {0, 2, 3, 5, 255}) {
+        EXPECT_EQ(textToTiles(0, 0, "A", static_cast<TextScale>(scale), record, &cells),
+                  ApiStatus::InvalidArgument)
+            << scale;
+    }
+    EXPECT_TRUE(cells.empty());
+}
+
+TEST(TextTiles, SR_FW_12_ExtremeCoordinatesAreOutOfRange) {
+    constexpr int kMax = std::numeric_limits<int>::max();
+    constexpr int kMin = std::numeric_limits<int>::min();
+    Cells cells;
+    for (const TextScale scale : {TextScale::X1, TextScale::X4}) {
+        EXPECT_EQ(textToTiles(kMax, 0, "AB", scale, record, &cells), ApiStatus::OutOfRange);
+        EXPECT_EQ(textToTiles(0, kMax, "AB", scale, record, &cells), ApiStatus::OutOfRange);
+        EXPECT_EQ(textToTiles(kMin, 0, "AB", scale, record, &cells), ApiStatus::OutOfRange);
+        EXPECT_EQ(textToTiles(0, kMin, "AB", scale, record, &cells), ApiStatus::OutOfRange);
+    }
+    EXPECT_TRUE(cells.empty());
+}
+
+TEST(TextTiles, SR_FW_12_NullSinkIsRejected) {
+    EXPECT_EQ(textToTiles(0, 0, "A", TextScale::X1, nullptr, nullptr), ApiStatus::InvalidArgument);
 }
 
 TEST(TextTiles, SR_FW_12_TextFitsExactlyToTheGridEdge) {
