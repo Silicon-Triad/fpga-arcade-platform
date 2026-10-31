@@ -9,6 +9,15 @@
 //   stage 4  colour output: R, G, B unpacked and registered; black while blanking
 // HSYNC, VSYNC and blank go through a 4-deep shift register, so they stay aligned with the
 // colour (SR-REN-06). A new pixel enters every cycle, so all four stages are busy.
+//
+// Interface with the VGA Controller (#25) and the tilemap read (#29):
+//   - vga_x, vga_y: active-pixel coordinates; only bits [2:0] (position inside the tile) are
+//     used here. The tile-grid bits select the tilemap cell upstream.
+//   - blank_in: active-high, 1 = blanking (the opposite polarity of the board's VGA_BLANK_N).
+//   - hsync_in, vsync_in: passed through unchanged (no polarity change), delayed by 4 clocks.
+//   - tile_index: presented one clock after the vga_x/vga_y it belongs to (stage 1).
+//   - Module name: hw/rtl/tile_renderer.sv (#29, tilemap banks and swap) is the top-level Tile
+//     Renderer and instantiates this pipeline.
 module tile_renderer_pipeline (
     input logic clk,
     input logic rst,  // synchronous reset (R-4.2.6)
