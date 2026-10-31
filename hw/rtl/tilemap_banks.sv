@@ -9,31 +9,36 @@
 //
 // Clock domain: everything runs on clk (the renderer clock). Inputs from another clock domain
 // must be synchronised by the caller (R-4.2.5).
+//
+// HAL contract: host writes are ignored while clear_busy is high, and the register map has no
+// status bit for it. After setting Control bit 1 the HAL must not write tilemap cells until the
+// clear is done; waiting one frame period is enough (clear takes TILEMAP_BANK_SIZE clocks).
 // verilog_lint: waive-start parameter-name-style
-module tilemap_banks #(
-    localparam int ADDR_W = $clog2(arcade_regs_pkg::TILEMAP_BANK_SIZE)  // SR-REN-01: 12,288 cells
-) (
+// Cell address width: $clog2(TILEMAP_BANK_SIZE) = 14 bits for 12,288 cells (SR-REN-01).
+module tilemap_banks (
     input logic clk,
     input logic rst,  // synchronous, active high (R-4.2.6)
 
     // Host write port (TBL-Tilemap: bank_id, cell index, tile index)
-    input logic              wr_en,
-    input logic              wr_bank,
-    input logic [ADDR_W-1:0] wr_addr,
-    input logic [       7:0] wr_data,
+    input logic                                                  wr_en,
+    input logic                                                  wr_bank,
+    input logic [$clog2(arcade_regs_pkg::TILEMAP_BANK_SIZE)-1:0] wr_addr,
+    input logic [                                           7:0] wr_data,
 
     input logic swap_req,       // 1-clock pulse: Swap Request write of 1 (§3.1.4)
     input logic reset_tilemap,  // level: Control Register bit 1 (§3.1.4, SR-REN-07)
     input logic vblank_start,   // 1-clock pulse from the VGA Controller (SR-VGA-08)
 
     // Renderer read port: front bank, 1 clock latency
-    input  logic [ADDR_W-1:0] rd_addr,
-    output logic [       7:0] rd_data,
+    input  logic [$clog2(arcade_regs_pkg::TILEMAP_BANK_SIZE)-1:0] rd_addr,
+    output logic [                                           7:0] rd_data,
 
     output logic front_bank,    // Swap Request / Front Bank read value (§3.1.4)
     output logic swap_pending,  // Status Register bit 2 (§3.1.4, SR-REN-03)
     output logic clear_busy     // high while the SR-REN-07 clear runs
 );
+
+  localparam int ADDR_W = $clog2(arcade_regs_pkg::TILEMAP_BANK_SIZE);  // SR-REN-01
 
   // SR-REN-01: index of the last cell of a bank
   localparam logic [ADDR_W-1:0] LAST_CELL = ADDR_W'(arcade_regs_pkg::TILEMAP_BANK_SIZE - 1);
