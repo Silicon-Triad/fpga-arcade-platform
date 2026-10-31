@@ -35,6 +35,11 @@ class App final : public Screen {
 
     /// Moves to `state` and sets its key-binding context (SR-INP-09).
     void setState(AppState state) noexcept;
+    /// Start-up reports it is done: Boot goes to Menu (SR-FW-01). Does nothing in other states.
+    /// Until then Boot stays, so the caller decides the progress and the timing.
+    void bootFinished() noexcept;
+    /// The Boot screen, for the caller to drive (SR-FW-01).
+    BootScreen& boot() noexcept { return boot_; }
     /// The current state.
     AppState state() const noexcept { return state_; }
     /// The screen of `state`; never nullptr.
