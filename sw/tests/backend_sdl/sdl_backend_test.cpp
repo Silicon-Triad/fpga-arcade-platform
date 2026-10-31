@@ -74,7 +74,9 @@ TileSet distinctTiles() {
     TileSet tiles{};
     for (std::size_t t = 0; t < kTileCount; ++t) {
         const auto nibble = static_cast<std::uint8_t>(t % kPaletteSize);
-        tiles[t].fill(static_cast<std::uint8_t>(nibble | (nibble << 4)));
+        const auto u_nibble = static_cast<unsigned>(nibble);
+        tiles[t].fill(static_cast<std::uint8_t>(
+            u_nibble | (u_nibble << 4)));  // NOLINT(bugprone-signed-bitwise)
     }
     return tiles;
 }

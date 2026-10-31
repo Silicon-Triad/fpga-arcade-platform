@@ -63,26 +63,31 @@ module tb_tile_renderer_pipeline;
     // 1. Initialize Palette RAM (SR-REN-05)
     // -----------------------------------------------------------------
     @(posedge clk);
+    #1;
     pal_wr_en   = 1;
     // Index 5: 0x00_AA_BB_CC
     pal_wr_addr = 5;
     pal_wr_data = 32'h00AABBCC;
     @(posedge clk);
+    #1;
     // Index 10: 0x00_11_22_33
     pal_wr_addr = 10;
     pal_wr_data = 32'h00112233;
     @(posedge clk);
+    #1;
     pal_wr_en = 0;
 
     // -----------------------------------------------------------------
     // 2. Initialize Pattern RAM (SR-REN-04)
     // -----------------------------------------------------------------
     @(posedge clk);
+    #1;
     pat_wr_en   = 1;
     pat_wr_strb = 4'b1111;
     pat_wr_addr = 11'h03B;  // Tile 7, Row 3
     pat_wr_data = 32'h000000A5;  // Left pixel = 5, Right pixel = 10 (low nibble = left pixel)
     @(posedge clk);
+    #1;
     pat_wr_en = 0;
 
     #20;
@@ -92,6 +97,7 @@ module tb_tile_renderer_pipeline;
     // -----------------------------------------------------------------
     // Cycle 0
     @(posedge clk);
+    #1;
     vga_x = 10'd0;
     vga_y = 10'd3;
     hsync_in = 1;
@@ -100,6 +106,7 @@ module tb_tile_renderer_pipeline;
 
     // Cycle 1
     @(posedge clk);
+    #1;
     vga_x = 10'd1;
     tile_index = 8'd7;
     hsync_in = 0;
@@ -107,14 +114,17 @@ module tb_tile_renderer_pipeline;
 
     // Cycle 2
     @(posedge clk);
+    #1;
     vga_x = 10'd2;
     tile_index = 8'd7;
 
     // Cycle 3
     @(posedge clk);
+    #1;
 
     // Cycle 4: Check Pixel 0
     @(posedge clk);
+    #1;
     if (!(vga_r == 8'hAA && vga_g == 8'hBB && vga_b == 8'hCC &&
               hsync_out == 1 && vsync_out == 0)) begin
       $display("FAIL: Pixel 0 decode or latency mismatch. ",
@@ -125,6 +135,7 @@ module tb_tile_renderer_pipeline;
 
     // Cycle 5: Check Pixel 1
     @(posedge clk);
+    #1;
     if (!(vga_r == 8'h11 && vga_g == 8'h22 && vga_b == 8'h33 &&
               hsync_out == 0 && vsync_out == 1)) begin
       $display("FAIL: Pixel 1 decode or latency mismatch. ",

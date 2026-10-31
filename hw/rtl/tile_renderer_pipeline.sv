@@ -37,7 +37,6 @@ module tile_renderer_pipeline (
 );
 
   // Sink unused top bits to satisfy Verilator without pragmas
-  wire _unused = &{1'b0, vga_x[9:3], vga_y[9:3], stage4_rgb[31:24]};
 
   // Explicit constants imported strictly from the package
   localparam int PalSize = arcade_regs_pkg::PALETTE_SIZE;
@@ -147,4 +146,5 @@ module tile_renderer_pipeline (
   assign vsync_out = vsync_shift[4];
   assign blank_out = blank_shift[4];
 
+  wire _unused = &{1'b0, vga_x[9:3], vga_y[9:3], stage4_rgb[31:24]};
 endmodule
