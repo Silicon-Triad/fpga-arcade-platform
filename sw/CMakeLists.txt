@@ -25,6 +25,7 @@ add_subdirectory(tools)
 if(ARCADE_BACKEND_SDL)
     add_subdirectory(backend_sdl)
 endif()
+add_subdirectory(app)
 
 if(ARCADE_BUILD_TESTS)
     # GoogleTest: use the system package (libgtest-dev) if present, else fetch it.
