@@ -21,16 +21,9 @@ namespace {
 // bar fills over that time. Far inside BOOT_LIMIT (SR-FW-01).
 constexpr int kSplashTicks = TICK_RATE;
 
-// The high-score table the menu reads its BEST line from (SR-FW-08, SR-UI-02). Loaded once at
-// start-up; BestScoreFn is a plain function pointer, so the lookup reaches it through here.
-const HighScoreStore* gBestScores = nullptr;
-
 // SR-UI-02: the best score is rank 1 of the game's table, or 0 while the table is empty.
-std::uint32_t bestScoreOf(std::uint8_t gameId) {
-    if (gBestScores == nullptr) {
-        return 0;
-    }
-    const auto& table = gBestScores->table(gameId);
+std::uint32_t bestScoreOf(const HighScoreStore& scores, std::uint8_t gameId) {
+    const auto& table = scores.table(gameId);
     return table.count > 0 ? table.rows[0].score : 0;
 }
 
@@ -71,12 +64,12 @@ int runArcade(const Options& options, const BackendFactory& factory, std::FILE* 
     }
 
     // SR-FW-08: a missing or unreadable HISCORE_FILE gives an empty table, never a failure.
-    static HighScoreStore scores;
+    HighScoreStore scores;
     PosixFileSystem fs;
     scores.load(fs);
-    gBestScores = &scores;
 
-    App app(api, kGameRegistry.data(), kGameRegistry.size(), &bestScoreOf);
+    App app(api, kGameRegistry.data(), kGameRegistry.size(),
+            [&scores](std::uint8_t gameId) { return bestScoreOf(scores, gameId); });
     MonotonicClock clock;
     GameLoop loop(api, clock, GameLoopConfig{options.profile});
 

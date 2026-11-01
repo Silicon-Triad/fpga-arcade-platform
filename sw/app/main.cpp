@@ -1,6 +1,8 @@
 // The arcade program: chooses the backend and runs the start-up sequence (SR-FW-01, SR-FW-05).
 #include <cstdio>
+#include <memory>
 #include <string_view>
+#include <utility>
 
 #include "app/options.hpp"
 #include "app/startup.hpp"
@@ -34,7 +36,8 @@ BackendStart startBackend(const arcade::Options& options) {
         return start;
     }
 #ifdef ARCADE_HAS_SDL
-    // Static: the backend keeps references to these until the program ends.
+    // Static: BindingLookup keeps a reference to `bindings`, and the backend to `lookup` and
+    // `textLayout`, until the program ends.
     static arcade::KeyBindings bindings;
     static const arcade::BindingLookup lookup(bindings);
     static const arcade::FontTextLayout textLayout;

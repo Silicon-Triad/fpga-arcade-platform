@@ -66,7 +66,7 @@ App::App(EngineApi& api, const GameRegistryRow* rows, std::size_t rowCount, Best
         games_.push_back(rows[i].factory());  // SR-FW-03, SR-FW-04
         menuGames.push_back(MenuGame{&rows[i], games_.back().get()});
     }
-    menu_ = std::make_unique<MenuScreen>(std::move(menuGames), bestScore);
+    menu_ = std::make_unique<MenuScreen>(std::move(menuGames), std::move(bestScore));
 }
 
 void App::setState(AppState state) noexcept {

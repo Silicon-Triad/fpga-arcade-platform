@@ -9,18 +9,29 @@
 namespace arcade {
 namespace {
 
-// Section 3.1.1 screen 1. Text colours (yellow, red) wait for #81.
+// Text colours (yellow, red) wait for #81.
+// Section 3.1.1 screen 1.
 constexpr std::string_view kLogo = "FPGA ARCADE";
+// Section 3.1.1 screen 1.
 constexpr std::string_view kSubtitle = "SILICON TRIAD - DE1-SOC - 1024X768";
+// Section 3.1.1 screen 1.
 constexpr std::string_view kStatus = "STARTING...";
+// Section 3.1.1 screen 1.
 constexpr std::string_view kNoKeyboard = "NO KEYBOARD FOUND - PLUG IN A USB KEYBOARD";
+// Section 3.1.1 screen 1.
 constexpr int kLogoRow = 34;
+// Section 3.1.1 screen 1.
 constexpr int kSubtitleRow = 44;
+// Section 3.1.1 screen 1.
 constexpr int kBarRow = 50;
+// Section 3.1.1 screen 1.
 constexpr int kBarFirstCol = 32;
+// Section 3.1.1 screen 1.
 constexpr int kBarLastCol = 95;
 constexpr int kBarWidth = kBarLastCol - kBarFirstCol + 1;
+// Section 3.1.1 screen 1.
 constexpr int kStatusRow = 53;
+// Section 3.1.1 screen 1.
 constexpr int kNoKeyboardRow = 60;
 
 void drawCentred(EngineApi& api, int row, std::string_view text, TextScale scale) noexcept {

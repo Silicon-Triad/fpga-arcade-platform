@@ -147,7 +147,7 @@ TEST(Options, RejectsUnknown) {
 TEST(Startup, SR_FW_01_LoadsTilesOnceBeforeFirstPresentThenMenu) {
     std::vector<std::string> calls;
     Log log;
-    constexpr int kPresents = 70;  // past the splash
+    constexpr int kPresents = TICK_RATE + 10;  // past the splash
     EXPECT_EQ(runArcade(Options{}, fakeFactory(calls, kPresents), log.file()), 0);
 
     EXPECT_EQ(calls.front(), "start");
