@@ -17,10 +17,6 @@ constexpr int kTitleRow = 41;
 constexpr int kYesRow = 48;
 constexpr int kNoRow = 50;
 
-void drawCentred(EngineApi& api, int row, std::string_view text, TextScale scale) noexcept {
-    api.drawText(centredCol(static_cast<int>(text.size()), scale), row, text, scale);
-}
-
 }  // namespace
 
 void ShutdownConfirmScreen::update(const InputFrame& input) noexcept {

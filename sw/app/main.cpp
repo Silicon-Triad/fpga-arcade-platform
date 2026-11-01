@@ -22,11 +22,17 @@ using arcade::BackendStart;
 constexpr int kExitUsage = 2;
 constexpr std::string_view kStepNoFpga = "FPGA backend is not available yet";
 
-// SR-FW-14: the handler only sets this; the game loop acts on it between ticks. The one global a
+// SR-FW-14: the handler sets this; the game loop acts on it between ticks. The one global a
 // handler needs: it can reach nothing else (async-signal-safe).
 volatile std::sig_atomic_t gStopSignal = 0;
 
-extern "C" void onStopSignal(int /*signal*/) { gStopSignal = 1; }
+// A second signal ends the program at once, so a hung save can still be stopped. signal() is
+// async-signal-safe.
+extern "C" void onStopSignal(int /*signal*/) {
+    gStopSignal = 1;
+    (void)std::signal(SIGINT, SIG_DFL);
+    (void)std::signal(SIGTERM, SIG_DFL);
+}
 
 #ifdef ARCADE_HAS_SDL
 constexpr std::string_view kStepOpenSdl = "open SDL2 window";

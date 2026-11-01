@@ -43,8 +43,9 @@ class HighScoreStore {
     void load(FileSystem& fs, std::string_view path = HISCORE_FILE);
 
     /// Writes the table to `path` + ".tmp", calls fsync(), then rename() over `path`
-    /// (SR-FW-09). Each line holds only game_id,rank,initials,score,seq (SC-03).
-    SaveStatus save(FileSystem& fs, std::string_view path = HISCORE_FILE) const;
+    /// (SR-FW-09). Each line holds only game_id,rank,initials,score,seq (SC-03). Success clears any
+    /// pending save (SR-FW-13).
+    SaveStatus save(FileSystem& fs, std::string_view path = HISCORE_FILE);
 
     /// Saves as save() does if an insert() has not been saved yet, so nothing is lost on shutdown
     /// (SR-FW-13). Ok if nothing is pending; after a failure the save stays pending.

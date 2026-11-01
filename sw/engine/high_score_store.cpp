@@ -148,9 +148,7 @@ SaveStatus HighScoreStore::savePending(FileSystem& fs, std::string_view path) {
     if (!savePending_) {
         return SaveStatus::Ok;
     }
-    const SaveStatus status = save(fs, path);
-    savePending_ = status != SaveStatus::Ok;
-    return status;
+    return save(fs, path);
 }
 
 std::optional<std::uint8_t> HighScoreStore::insert(std::uint8_t gameId,
@@ -180,7 +178,7 @@ const HighScoreStore::GameTable& HighScoreStore::table(std::uint8_t gameId) cons
     return gameId < kHighScoreGameCount ? tables_[gameId] : kEmpty;
 }
 
-SaveStatus HighScoreStore::save(FileSystem& fs, std::string_view path) const {
+SaveStatus HighScoreStore::save(FileSystem& fs, std::string_view path) {
     // SC-03: each line holds only game_id,rank,initials,score,seq.
     std::string text;
     for (const GameTable& t : tables_) {
@@ -220,6 +218,7 @@ SaveStatus HighScoreStore::save(FileSystem& fs, std::string_view path) const {
     if (!fs.rename(temp, target)) {
         return SaveStatus::RenameFailed;
     }
+    savePending_ = false;  // SR-FW-13
     return SaveStatus::Ok;
 }
 

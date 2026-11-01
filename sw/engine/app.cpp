@@ -65,7 +65,8 @@ App::App(EngineApi& api, const GameRegistryRow* rows, std::size_t rowCount, Best
         games_.push_back(rows[i].factory());  // SR-FW-03, SR-FW-04
         menuGames.push_back(MenuGame{&rows[i], games_.back().get()});
     }
-    menu_ = std::make_unique<MenuScreen>(std::move(menuGames), std::move(bestScore));
+    menu_ =
+        std::make_unique<MenuScreen>(std::move(menuGames), std::move(bestScore), api_, soundOn_);
 }
 
 void App::setState(AppState state) noexcept {
@@ -109,7 +110,23 @@ Screen* App::screenFor(AppState state) noexcept {
     return &boot_;
 }
 
+void App::handleMute(const InputFrame& input) noexcept {
+    // Section 3.1.1: no keys work on screens without a context. On 10b a toggle would also undo
+    // the shutdown mute (SR-FW-13). Initials needs no check: M arrives as Char (SR-INP-09).
+    if (!contextFor(state_, playContext_)) {
+        return;
+    }
+    for (std::size_t i = 0; i < input.count; ++i) {
+        const InputEvent& event = input.events[i];
+        if (event.type == InputEventType::KeyDown && event.action == Action::Mute) {
+            soundOn_ = !soundOn_;  // SR-FW-11
+            api_.setMute(!soundOn_);
+        }
+    }
+}
+
 void App::update(const InputFrame& input) noexcept {
+    handleMute(input);  // first, so the Mute is not lost if a key below ends the tick
     if (backReturnsToMenu(state_) && backPressed(input)) {
         setState(AppState::Menu);  // SR-UI-07, SR-UI-12
         return;
@@ -134,6 +151,7 @@ void App::update(const InputFrame& input) noexcept {
         playContext_ =
             selected->row->game_id == kGameIdSnake ? InputContext::Snake : InputContext::Breakout;
         playing_.start(*selected->game);
+        api_.playSound(EffectId::MenuSelect);  // SR-GAM-16
         setState(AppState::Playing);
     } else if (request == MenuScreen::Request::Scores) {
         setState(AppState::HighScores);

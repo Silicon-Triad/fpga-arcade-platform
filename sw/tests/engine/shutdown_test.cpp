@@ -53,9 +53,10 @@ class ShutdownHoldTest : public ::testing::Test {
         app.setState(AppState::Menu);
     }
 
+    // KeyDown, then `ticks` more ticks with the key held (SR-UI-14: timed from KeyDown).
     void hold(int ticks) {
         app.update(press(Action::Back, true));
-        for (int i = 1; i < ticks; ++i) {
+        for (int i = 0; i < ticks; ++i) {
             app.update(heldBack());
         }
     }
@@ -168,6 +169,15 @@ TEST(HighScoreStore, SR_FW_13_SavePendingWritesOnlyAnUnsavedInsert) {
     ASSERT_TRUE(store.insert(kGameIdSnake, {'A', 'B', 'C'}, 10).has_value());
     EXPECT_EQ(store.savePending(fs, "f"), SaveStatus::Ok);
     EXPECT_EQ(fs.renames, 1);
+    EXPECT_EQ(store.savePending(fs, "f"), SaveStatus::Ok);
+    EXPECT_EQ(fs.renames, 1);
+}
+
+TEST(HighScoreStore, SR_FW_13_SaveClearsThePendingSave) {
+    HighScoreStore store;
+    CountingFileSystem fs;
+    ASSERT_TRUE(store.insert(kGameIdSnake, {'A', 'B', 'C'}, 10).has_value());
+    EXPECT_EQ(store.save(fs, "f"), SaveStatus::Ok);
     EXPECT_EQ(store.savePending(fs, "f"), SaveStatus::Ok);
     EXPECT_EQ(fs.renames, 1);
 }

@@ -216,13 +216,13 @@ TEST(RunArcade, SR_FW_13_HoldThenSelectExitsWithShutdownStatus) {
         fake.script = [](int poll) {
             InputFrame frame{};
             const int tick = poll - kSplashTicks;
-            if (tick >= 1 && tick <= kHoldTicks) {
+            if (tick >= 1 && tick <= kHoldTicks + 1) {
                 frame.held[static_cast<std::size_t>(Action::Back)] = true;
             }
             if (tick == 1) {
                 frame.events[0] = InputEvent{InputEventType::KeyDown, Action::Back, 0};
                 frame.count = 1;
-            } else if (tick == kHoldTicks + 2) {
+            } else if (tick == kHoldTicks + 3) {
                 frame.events[0] = InputEvent{InputEventType::KeyDown, Action::Select, 0};
                 frame.count = 1;
             }
@@ -242,10 +242,10 @@ TEST(RunArcade, SR_FW_13_FinalFrameIsKeptBeforeRelease) {
         fake.script = [](int poll) {
             InputFrame frame{};
             const int tick = poll - kSplashTicks;
-            if (tick >= 1 && tick <= kHoldTicks) {
+            if (tick >= 1 && tick <= kHoldTicks + 1) {
                 frame.held[static_cast<std::size_t>(Action::Back)] = true;
             }
-            if (tick == 1 || tick == kHoldTicks + 2) {
+            if (tick == 1 || tick == kHoldTicks + 3) {
                 frame.events[0] = InputEvent{InputEventType::KeyDown,
                                              tick == 1 ? Action::Back : Action::Select, 0};
                 frame.count = 1;
@@ -339,6 +339,39 @@ class RecordedSdl final : public EngineApi {
     std::unique_ptr<SdlBackend> sdl_;
     Calls& calls_;
 };
+
+class EscIsBack final : public KeyActionLookup {
+  public:
+    std::optional<KeyMapping> lookup(InputContext, std::uint16_t code) const noexcept override {
+        if (code != linux_key::kEsc) {
+            return std::nullopt;
+        }
+        return KeyMapping{Action::Back, '\0'};
+    }
+};
+
+TEST(SdlHold, SR_UI_14_RealBackendHeldKeyOpensBoxAfter180Ticks) {
+    SDL_SetHint(SDL_HINT_VIDEODRIVER, "dummy");  // CI has no display
+    const EscIsBack keys;
+    auto sdl = SdlBackend::open(keys);
+    ASSERT_NE(sdl, nullptr) << SDL_GetError();
+    App app(*sdl, kGameRegistry.data(), kGameRegistry.size(), [](std::uint8_t) { return 0U; });
+    app.setState(AppState::Menu);
+    SDL_Event down{};
+    down.type = SDL_KEYDOWN;
+    down.key.state = SDL_PRESSED;
+    down.key.keysym.scancode = SDL_SCANCODE_ESCAPE;
+    ASSERT_EQ(SDL_PushEvent(&down), 1);
+    app.update(sdl->pollInput());
+    for (int tick = 1; tick < kHoldTicks; ++tick) {
+        down.key.repeat = 1;  // auto-repeat must not restart the count (SR-INP-07)
+        ASSERT_EQ(SDL_PushEvent(&down), 1);
+        app.update(sdl->pollInput());
+    }
+    EXPECT_EQ(app.state(), AppState::Menu);
+    app.update(sdl->pollInput());
+    EXPECT_EQ(app.state(), AppState::ShutdownConfirm);
+}
 
 TEST(RunArcade, SR_FW_14_SdlQuitEventRunsTheSameStepsAndExitsZero) {
     SDL_SetHint(SDL_HINT_VIDEODRIVER, "dummy");  // CI has no display

@@ -36,7 +36,7 @@ constexpr int kPanelWidth = 62;
 constexpr int kPanelHeight = 54;
 constexpr int kCaptionRow = 74;
 constexpr int kStatusRow = 86;
-constexpr int SHUTDOWN_HOLD = 180;    // App. A: 3 s, SR-UI-14
+constexpr int SHUTDOWN_HOLD = 3 * TICK_RATE;  // App. A, SR-UI-14
 constexpr std::size_t kLineMax = 48;  // DESIGN CHOICE: longest composed line, no heap (R-4.1.6)
 
 // DESIGN CHOICE: how often the preview presses keys, so that games waiting for a key move.
@@ -44,8 +44,9 @@ constexpr std::uint32_t kPreviewKeyTicks = 60;
 
 }  // namespace
 
-MenuScreen::MenuScreen(std::vector<MenuGame> games, BestScoreFn bestScore)
-    : games_(std::move(games)), bestScore_(std::move(bestScore)) {
+MenuScreen::MenuScreen(std::vector<MenuGame> games, BestScoreFn bestScore, ArcadeApi& sound,
+                       const bool& soundOn)
+    : games_(std::move(games)), bestScore_(std::move(bestScore)), sound_(sound), soundOn_(soundOn) {
     // SR-FW-04: the menu order comes only from the registry.
     std::sort(games_.begin(), games_.end(), [](const MenuGame& a, const MenuGame& b) {
         return a.row->menu_order < b.row->menu_order;
@@ -62,9 +63,11 @@ void MenuScreen::update(const InputFrame& input) noexcept {
         if (event.action == Action::Up) {  // SR-UI-01: wraps at both ends
             selection_ = (selection_ + count - 1) % count;
             previewTicks_ = 0;
+            sound_.playSound(EffectId::MenuMove);  // SR-GAM-15
         } else if (event.action == Action::Down) {
             selection_ = (selection_ + 1) % count;
             previewTicks_ = 0;
+            sound_.playSound(EffectId::MenuMove);     // SR-GAM-15
         } else if (event.action == Action::Select) {  // SR-UI-03
             request_ = selection_ < games_.size() ? Request::StartGame : Request::Scores;
             backHoldTicks_ = 0;  // leaving the menu ends the hold
@@ -90,7 +93,8 @@ void MenuScreen::trackBackHold(const InputFrame& input) noexcept {
         return;
     }
     backHoldTicks_ = input.held[static_cast<std::size_t>(Action::Back)] ? backHoldTicks_ + 1 : 0;
-    if (backHoldTicks_ >= SHUTDOWN_HOLD) {
+    // The KeyDown tick is count 1, so this is SHUTDOWN_HOLD ticks after KeyDown (SR-UI-14).
+    if (backHoldTicks_ > SHUTDOWN_HOLD) {
         backHoldTicks_ = 0;
         request_ = Request::Shutdown;
     }
@@ -149,11 +153,12 @@ void MenuScreen::render(EngineApi& api) noexcept {
         api.drawText(kPanelCol + 2, kCaptionRow,
                      {line.data(), static_cast<std::size_t>(std::max(length, 0))}, TextScale::X1);
     }
-    const int status = std::snprintf(line.data(), line.size(),
-                                     "SOUND ON - %zu GAMES - TOP 10 SAVED", games_.size());
+    const int status =
+        std::snprintf(line.data(), line.size(), "SOUND %s - %zu GAMES - TOP 10 SAVED",
+                      soundOn_ ? "ON" : "OFF", games_.size());
     api.drawText(kItemCol, kStatusRow, {line.data(), static_cast<std::size_t>(std::max(status, 0))},
                  TextScale::X1);
-    drawHintBar(api, HintScreen::Menu, true);  // sound state arrives with #14
+    drawHintBar(api, HintScreen::Menu, soundOn_);  // SR-UI-13
 }
 
 MenuScreen::Request MenuScreen::takeRequest() noexcept {

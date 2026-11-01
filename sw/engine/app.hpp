@@ -50,6 +50,8 @@ class App final : public Screen {
     ShuttingDownScreen& shuttingDown() noexcept { return shuttingDown_; }
     /// The Playing screen.
     const PlayingScreen& playing() const noexcept { return playing_; }
+    /// True while sound is on (App. A soundOn, SR-FW-11).
+    bool soundOn() const noexcept { return soundOn_; }
 
     /// Runs the current screen and acts on what it requested (SR-UI-03).
     void update(const InputFrame& input) noexcept override;
@@ -57,7 +59,11 @@ class App final : public Screen {
     void render(EngineApi& api) noexcept override;
 
   private:
+    /// Toggles sound once per Mute action in `input` (SR-FW-11).
+    void handleMute(const InputFrame& input) noexcept;
+
     EngineApi& api_;
+    bool soundOn_ = true;  // SR-FW-11: the only copy; on at start-up, lasts until the program exits
     std::vector<std::unique_ptr<Game>> games_;
     std::unique_ptr<MenuScreen> menu_;
     BootScreen boot_;
@@ -65,7 +71,7 @@ class App final : public Screen {
     HighScoresScreen highScores_;
     ShutdownConfirmScreen shutdownConfirm_;
     ShuttingDownScreen shuttingDown_;
-    PlayingScreen playing_;
+    PlayingScreen playing_{soundOn_};
     PausedScreen paused_;
     KeyboardLostScreen keyboardLost_;
     GameOverScreen gameOver_;

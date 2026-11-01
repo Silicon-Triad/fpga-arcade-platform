@@ -29,11 +29,14 @@ class MenuScreen final : public Screen {
     /// What Select asked for.
     enum class Request : std::uint8_t { None, StartGame, Scores, Shutdown };
 
-    /// Sorts `games` by menu_order. Start-up only: it allocates (R-4.1.6).
-    MenuScreen(std::vector<MenuGame> games, BestScoreFn bestScore);
+    /// Sorts `games` by menu_order. Start-up only: it allocates (R-4.1.6). `sound` plays MenuMove;
+    /// `soundOn` is the engine's sound state and must outlive the menu (SR-FW-11).
+    MenuScreen(std::vector<MenuGame> games, BestScoreFn bestScore, ArcadeApi& sound,
+               const bool& soundOn);
 
     /// Handles Up, Down and Select, and runs the selected game's preview (SR-UI-01 to SR-UI-03).
     /// Back held for SHUTDOWN_HOLD ticks from its KeyDown raises Request::Shutdown (SR-UI-14).
+    /// Each move plays MenuMove once (SR-GAM-15).
     void update(const InputFrame& input) noexcept override;
     /// Draws section 3.1.1 screen 2.
     void render(EngineApi& api) noexcept override;
@@ -55,6 +58,8 @@ class MenuScreen final : public Screen {
 
     std::vector<MenuGame> games_;
     BestScoreFn bestScore_;
+    ArcadeApi& sound_;
+    const bool& soundOn_;
     std::size_t selection_ = 0;
     Request request_ = Request::None;
     std::uint32_t previewTicks_ = 0;
