@@ -36,6 +36,7 @@ constexpr int kPanelWidth = 62;
 constexpr int kPanelHeight = 54;
 constexpr int kCaptionRow = 74;
 constexpr int kStatusRow = 86;
+constexpr int SHUTDOWN_HOLD = 3 * TICK_RATE;  // App. A, SR-UI-14
 constexpr std::size_t kLineMax = 48;  // DESIGN CHOICE: longest composed line, no heap (R-4.1.6)
 
 // DESIGN CHOICE: how often the preview presses keys, so that games waiting for a key move.
@@ -69,9 +70,34 @@ void MenuScreen::update(const InputFrame& input) noexcept {
             sound_.playSound(EffectId::MenuMove);     // SR-GAM-15
         } else if (event.action == Action::Select) {  // SR-UI-03
             request_ = selection_ < games_.size() ? Request::StartGame : Request::Scores;
+            backHoldTicks_ = 0;  // leaving the menu ends the hold
         }
     }
+    if (request_ == Request::None) {
+        trackBackHold(input);
+    }
     movePreview();
+}
+
+// SR-UI-14: only a KeyDown starts the timing, so a key still held from another screen, or from an
+// earlier trigger, opens nothing. A release before SHUTDOWN_HOLD ticks does nothing.
+void MenuScreen::trackBackHold(const InputFrame& input) noexcept {
+    for (std::size_t i = 0; i < input.count; ++i) {
+        const InputEvent& event = input.events[i];
+        if (event.type == InputEventType::KeyDown && event.action == Action::Back) {
+            backHoldTicks_ = 1;
+            return;
+        }
+    }
+    if (backHoldTicks_ == 0) {
+        return;
+    }
+    backHoldTicks_ = input.held[static_cast<std::size_t>(Action::Back)] ? backHoldTicks_ + 1 : 0;
+    // The KeyDown tick is count 1, so this is SHUTDOWN_HOLD ticks after KeyDown (SR-UI-14).
+    if (backHoldTicks_ > SHUTDOWN_HOLD) {
+        backHoldTicks_ = 0;
+        request_ = Request::Shutdown;
+    }
 }
 
 // SR-UI-02: the preview runs the real game through the frozen interface, so a new game needs no

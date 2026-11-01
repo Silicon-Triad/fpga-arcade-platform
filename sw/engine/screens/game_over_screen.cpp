@@ -1,7 +1,5 @@
 #include "engine/screens/game_over_screen.hpp"
 
-#include <string_view>
-
 #include "assets/tile_ids.hpp"
 #include "engine/ui_layout.hpp"
 
@@ -18,10 +16,6 @@ constexpr int kScoreRow = 45;
 constexpr int kHiRow = 47;
 constexpr int kAgainRow = 52;
 constexpr int kMenuRow = 54;
-
-void drawCentred(EngineApi& api, int row, std::string_view text, TextScale scale) noexcept {
-    api.drawText(centredCol(static_cast<int>(text.size()), scale), row, text, scale);
-}
 
 }  // namespace
 

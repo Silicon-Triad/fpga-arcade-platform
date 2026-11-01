@@ -1,7 +1,5 @@
 #include "engine/screens/paused_screen.hpp"
 
-#include <string_view>
-
 #include "assets/tile_ids.hpp"
 #include "engine/ui_layout.hpp"
 
@@ -17,10 +15,6 @@ constexpr int kTitleRow = 41;
 constexpr int kResumeRow = 48;
 constexpr int kQuitRow = 50;
 constexpr int kSoundRow = 52;
-
-void drawCentred(EngineApi& api, int row, std::string_view text, TextScale scale) noexcept {
-    api.drawText(centredCol(static_cast<int>(text.size()), scale), row, text, scale);
-}
 
 }  // namespace
 

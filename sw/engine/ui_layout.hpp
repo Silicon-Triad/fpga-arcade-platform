@@ -33,6 +33,9 @@ struct ScoreLine {
 /// Formats "SCORE 000120", clamping `score` to SCORE_MAX (SR-UI-04).
 ScoreLine scoreLine(std::string_view label, std::uint32_t score) noexcept;
 
+/// Draws `text` centred on the grid at `row` (section 3.1.1 centred text).
+ApiStatus drawCentred(ArcadeApi& api, int row, std::string_view text, TextScale scale) noexcept;
+
 /// Draws the border on rows 0 and 95 and columns 0 and 127, with a blue accent tile every 8
 /// columns on rows 0 and 95 (section 3.1.1 common layout).
 ApiStatus drawFrame(ArcadeApi& api) noexcept;

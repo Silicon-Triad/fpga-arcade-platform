@@ -34,10 +34,6 @@ constexpr int kStatusRow = 53;
 // Section 3.1.1 screen 1.
 constexpr int kNoKeyboardRow = 60;
 
-void drawCentred(EngineApi& api, int row, std::string_view text, TextScale scale) noexcept {
-    api.drawText(centredCol(static_cast<int>(text.size()), scale), row, text, scale);
-}
-
 }  // namespace
 
 void BootScreen::setProgress(int done, int total) noexcept {

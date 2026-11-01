@@ -48,6 +48,8 @@ class App final : public Screen {
     Screen* screenFor(AppState state) noexcept;
     /// The menu.
     MenuScreen& menu() noexcept { return *menu_; }
+    /// The ShuttingDown screen, for finishShutdown() (SR-FW-13).
+    ShuttingDownScreen& shuttingDown() noexcept { return shuttingDown_; }
     /// The Playing screen.
     const PlayingScreen& playing() const noexcept { return playing_; }
     /// True while sound is on (App. A soundOn, SR-FW-11).

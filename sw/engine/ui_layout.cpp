@@ -19,6 +19,10 @@ constexpr TileIndex kBlankTile = assets::kFontFirstTile;
 
 }  // namespace
 
+ApiStatus drawCentred(ArcadeApi& api, int row, std::string_view text, TextScale scale) noexcept {
+    return api.drawText(centredCol(static_cast<int>(text.size()), scale), row, text, scale);
+}
+
 ApiStatus drawFrame(ArcadeApi& api) noexcept {
     api.fillRect(0, 0, kGridCols, 1, assets::kTileFrame);
     api.fillRect(0, kLastRow, kGridCols, 1, assets::kTileFrame);
