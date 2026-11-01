@@ -1,9 +1,12 @@
-// VGA Controller, XGA 1024x768 @ 60 Hz (#25). SR-VGA-02 to SR-VGA-07, CON-02.
+// VGA Controller, XGA 1024x768 @ 60 Hz (#25, #26). SR-VGA-02 to SR-VGA-09, CON-02.
 // Timing goes to the Tile Renderer in cycle 0; the renderer delays sync and blank with its colour
 // (SR-REN-06), and this module registers them onto the pins.
 module vga_controller (
     input logic clk,  // 65.000 MHz pixel clock (SR-VGA-01)
     input logic rst,  // synchronous, active high
+
+    // Control Register display-enable bit (§3.1.4), from the bridge register clock domain (#28)
+    input logic display_enable,
 
     // To the Tile Renderer, cycle 0 (active high)
     output logic [9:0] pixel_x,       // valid only while pixel_active
@@ -11,6 +14,7 @@ module vga_controller (
     output logic       pixel_active,
     output logic       h_sync,
     output logic       v_sync,
+    output logic       vblank_start,  // 1-clock pulse to the tilemap bank swap (SR-VGA-08)
 
     // From the Tile Renderer, aligned with each other (SR-REN-06)
     input logic [23:0] rgb_in,     // {R, G, B} (SR-VGA-07)
@@ -36,8 +40,22 @@ module vga_controller (
       .pixel_y     (pixel_y),
       .active      (pixel_active),
       .h_sync_pulse(h_sync),
-      .v_sync_pulse(v_sync)
+      .v_sync_pulse(v_sync),
+      .vblank_start(vblank_start)
   );
+
+  // display_enable crosses from the bridge register clock domain into this pixel clock domain:
+  // two-flop synchronizer (R-4.2.5). Resets to 0, the register map reset value (black, SR-VGA-09).
+  logic display_enable_meta_q, display_enable_q;
+  always_ff @(posedge clk) begin
+    if (rst) begin
+      display_enable_meta_q <= 1'b0;
+      display_enable_q <= 1'b0;
+    end else begin
+      display_enable_meta_q <= display_enable;
+      display_enable_q <= display_enable_meta_q;
+    end
+  end
 
   always_ff @(posedge clk) begin
     if (rst) begin
@@ -49,7 +67,8 @@ module vga_controller (
       VGA_HS <= ~h_sync_in;  // SR-VGA-04
       VGA_VS <= ~v_sync_in;  // SR-VGA-04
       VGA_BLANK_N <= ~blank_in;  // SR-VGA-05
-      {VGA_R, VGA_G, VGA_B} <= blank_in ? 24'h00_0000 : rgb_in;  // SR-VGA-07
+      // SR-VGA-07; SR-VGA-09: black until display enable is set, sync unchanged
+      {VGA_R, VGA_G, VGA_B} <= (blank_in || !display_enable_q) ? 24'h00_0000 : rgb_in;
     end
   end
 

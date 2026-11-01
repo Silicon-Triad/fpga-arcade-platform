@@ -1,4 +1,5 @@
-// Testbench for vga_controller (#25): SR-VGA-02 to SR-VGA-07, SR-REN-06 alignment.
+// Testbench for vga_controller (#25, #26): SR-VGA-02 to SR-VGA-09, SR-REN-06 alignment.
+// Display enable is 0 for the first whole frame (black, correct sync) and 1 after it.
 module tb_vga_controller;
 
   // verilog_lint: waive-start parameter-name-style
@@ -19,6 +20,8 @@ module tb_vga_controller;
 
   logic       clk = 1'b0;
   logic       rst = 1'b1;
+  logic       display_enable = 1'b0;
+  logic       vblank_start;
   logic [9:0] pixel_x;
   logic [9:0] pixel_y;
   logic       pixel_active;
@@ -29,24 +32,26 @@ module tb_vga_controller;
   logic vga_hs, vga_vs, vga_blank_n, vga_sync_n;
 
   vga_controller dut (
-      .clk         (clk),
-      .rst         (rst),
-      .pixel_x     (pixel_x),
-      .pixel_y     (pixel_y),
-      .pixel_active(pixel_active),
-      .h_sync      (h_sync),
-      .v_sync      (v_sync),
-      .rgb_in      (rgb_in),
-      .h_sync_in   (h_sync_in),
-      .v_sync_in   (v_sync_in),
-      .blank_in    (blank_in),
-      .VGA_R       (vga_r),
-      .VGA_G       (vga_g),
-      .VGA_B       (vga_b),
-      .VGA_HS      (vga_hs),
-      .VGA_VS      (vga_vs),
-      .VGA_BLANK_N (vga_blank_n),
-      .VGA_SYNC_N  (vga_sync_n)
+      .clk           (clk),
+      .rst           (rst),
+      .display_enable(display_enable),
+      .pixel_x       (pixel_x),
+      .pixel_y       (pixel_y),
+      .pixel_active  (pixel_active),
+      .h_sync        (h_sync),
+      .v_sync        (v_sync),
+      .vblank_start  (vblank_start),
+      .rgb_in        (rgb_in),
+      .h_sync_in     (h_sync_in),
+      .v_sync_in     (v_sync_in),
+      .blank_in      (blank_in),
+      .VGA_R         (vga_r),
+      .VGA_G         (vga_g),
+      .VGA_B         (vga_b),
+      .VGA_HS        (vga_hs),
+      .VGA_VS        (vga_vs),
+      .VGA_BLANK_N   (vga_blank_n),
+      .VGA_SYNC_N    (vga_sync_n)
   );
 
   // Checks count clocks, so the period does not matter; 65 MHz (SR-VGA-01) is measured in #46.
@@ -98,6 +103,12 @@ module tb_vga_controller;
   longint lines_checked = 0;
   logic prev_hs = 1'b1, prev_vs = 1'b1, prev_blank_n = 1'b0;
 
+  longint vs_falls = 0, frames_dark = 0, frames_lit = 0, vblanks_since_vs = 0;
+  longint hs_pulses_since_vs = 0;
+  bit colour_on = 1'b0;  // display enable as the checker expects it for the current frame
+  logic prev_pixel_active = 1'b0;
+  logic [9:0] prev_pixel_y = '0;
+
   always @(negedge clk) begin
     if (rst) begin
       // Reset state: no sync, blanked, black (SR-VGA-04, SR-VGA-05).
@@ -109,12 +120,22 @@ module tb_vga_controller;
 
       // SR-VGA-06: SYNC_N is 0 at all times.
       if (vga_sync_n !== 1'b0) fail("VGA_SYNC_N is not 0");
-      if ($isunknown({vga_r, vga_g, vga_b, vga_hs, vga_vs, vga_blank_n})) fail("X or Z on outputs");
+      if ($isunknown({vga_r, vga_g, vga_b, vga_hs, vga_vs, vga_blank_n, vblank_start})) begin
+        fail("X or Z on outputs");
+      end
+      // SR-VGA-08: one clock after the last active pixel of line 767 (cycle-0 outputs).
+      if (vblank_start !== (prev_pixel_active && !pixel_active && prev_pixel_y == 10'd767)) begin
+        fail($sformatf("vblank_start=%0b, pixel_y=%0d", vblank_start, prev_pixel_y));
+      end
+      if (vblank_start) vblanks_since_vs++;
+      prev_pixel_active = pixel_active;
+      prev_pixel_y = pixel_y;
       // SR-VGA-05: blanked during the sync pulses.
       if (vga_blank_n && (!vga_hs || !vga_vs)) fail("BLANK_N high during a sync pulse");
 
       // --- Horizontal (SR-VGA-02, SR-VGA-04) -------------------------------------------------
       if (prev_hs && !vga_hs) begin
+        hs_pulses_since_vs++;
         if (last_hs_fall >= 0) begin
           expect_eq("clocks per line (HS fall to HS fall)", clk_count - last_hs_fall, H_TOTAL);
           lines_checked++;
@@ -162,7 +183,21 @@ module tb_vga_controller;
                     V_TOTAL * H_TOTAL);
           expect_eq("active lines per frame", lines_since_vs_fall, V_ACTIVE);
           if (active_row >= 0) expect_eq("last active row index", active_row, V_ACTIVE - 1);
+          expect_eq("vblank_start pulses per frame", vblanks_since_vs, 1);
+          // SR-VGA-04, SR-VGA-09: one HS pulse per line in every frame, also while dark.
+          expect_eq("HS pulses per frame", hs_pulses_since_vs, V_TOTAL);
           frames_checked++;
+          if (colour_on) frames_lit++;
+          else frames_dark++;
+        end
+        vblanks_since_vs   = 0;
+        hs_pulses_since_vs = 0;
+        vs_falls++;
+        // SR-VGA-09: after one whole dark frame, the HAL sets display enable (in vertical sync, so
+        // it has settled long before the next active line).
+        if (vs_falls == 2) begin
+          display_enable = 1'b1;
+          colour_on = 1'b1;
         end
         if (last_blank_fall >= 0) begin
           expect_eq("vertical front porch (last BLANK_N fall to VS fall)",
@@ -179,7 +214,12 @@ module tb_vga_controller;
       end
 
       // --- Colour (SR-VGA-07, SR-REN-06) -----------------------------------------------------
-      if (vga_blank_n) begin
+      if (vga_blank_n && !colour_on) begin
+        // SR-VGA-09: display enable 0, so every active pixel is black.
+        if ({vga_r, vga_g, vga_b} !== 24'h00_0000) begin
+          fail($sformatf("colour %06h while display enable is 0", {vga_r, vga_g, vga_b}));
+        end
+      end else if (vga_blank_n) begin
         if (active_row >= 0) begin
           longint col;
           col = clk_count - last_blank_rise;
@@ -218,6 +258,11 @@ module tb_vga_controller;
     if (frames_checked < FRAMES_TO_CHECK) begin
       fail($sformatf("only %0d whole frames seen, expected %0d", frames_checked, FRAMES_TO_CHECK));
     end
+    if (frames_dark < 1 || frames_lit < 1) begin
+      fail($sformatf(
+           "need a whole dark and a whole lit frame, saw %0d and %0d", frames_dark, frames_lit));
+    end
+    $display("display enable 0: %0d whole frames, 1: %0d whole frames", frames_dark, frames_lit);
     $display("checked %0d frames, %0d lines, %0d clocks, %0d errors", frames_checked,
              lines_checked, clk_count, errors);
     if (errors == 0) $display("PASS");
