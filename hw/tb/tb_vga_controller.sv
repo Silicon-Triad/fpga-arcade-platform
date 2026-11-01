@@ -12,29 +12,34 @@ module tb_vga_controller;
   localparam longint V_SYNC = 6;  // SR-VGA-03, SR-VGA-04
   localparam longint V_BACK_PORCH = 29;  // SR-VGA-03
   localparam longint V_TOTAL = 806;  // SR-VGA-03
-  localparam int PIXEL_LATENCY = 4;  // SR-REN-06: Tile Renderer N = 4
+  localparam int RENDER_LATENCY = 4;  // SR-REN-06: Tile Renderer N = 4
   localparam longint FRAMES_TO_CHECK = 2;
   localparam int MAX_REPORTS = 20;
   // verilog_lint: waive-stop parameter-name-style
 
-  logic        clk = 1'b0;
-  logic        rst = 1'b1;
-  logic [ 9:0] pixel_x;
-  logic [ 9:0] pixel_y;
-  logic        pixel_active;
+  logic       clk = 1'b0;
+  logic       rst = 1'b1;
+  logic [9:0] pixel_x;
+  logic [9:0] pixel_y;
+  logic       pixel_active;
+  logic h_sync, v_sync;
   logic [23:0] rgb_in;
+  logic h_sync_in, v_sync_in, blank_in;
   logic [7:0] vga_r, vga_g, vga_b;
   logic vga_hs, vga_vs, vga_blank_n, vga_sync_n;
 
-  vga_controller #(
-      .PIXEL_LATENCY(PIXEL_LATENCY)
-  ) dut (
+  vga_controller dut (
       .clk         (clk),
       .rst         (rst),
       .pixel_x     (pixel_x),
       .pixel_y     (pixel_y),
       .pixel_active(pixel_active),
+      .h_sync      (h_sync),
+      .v_sync      (v_sync),
       .rgb_in      (rgb_in),
+      .h_sync_in   (h_sync_in),
+      .v_sync_in   (v_sync_in),
+      .blank_in    (blank_in),
       .VGA_R       (vga_r),
       .VGA_G       (vga_g),
       .VGA_B       (vga_b),
@@ -44,7 +49,7 @@ module tb_vga_controller;
       .VGA_SYNC_N  (vga_sync_n)
   );
 
-  // (SR-VGA-01) is measured on the board (issue #46).
+  // Checks count clocks, so the period does not matter; 65 MHz (SR-VGA-01) is measured in #46.
   always #1 clk = ~clk;
 
   function automatic logic [23:0] colour_of(input longint x, input longint y);
@@ -54,13 +59,23 @@ module tb_vga_controller;
     return {xb[7:0], yb[7:0], xb[9:8], yb[9:8], 4'b0101};
   endfunction
 
-  // Tile Renderer model (SR-REN-06): the colour for pixel_x/pixel_y appears on rgb_in
-  logic [23:0] renderer_q[PIXEL_LATENCY];
+  // Tile Renderer model (SR-REN-06): colour, sync and blank come back RENDER_LATENCY clocks
+  // later. Blanked pixels get white, so the test shows the controller blanks them itself.
+  logic [26:0] renderer_q[RENDER_LATENCY];  // {rgb, h_sync, v_sync, blank}
   always_ff @(posedge clk) begin
-    renderer_q[0] <= pixel_active ? colour_of(longint'(pixel_x), longint'(pixel_y)) : 24'hFF_FFFF;
-    for (int i = 1; i < PIXEL_LATENCY; i++) renderer_q[i] <= renderer_q[i-1];
+    if (rst) begin
+      for (int i = 0; i < RENDER_LATENCY; i++) renderer_q[i] <= {24'h00_0000, 3'b001};
+    end else begin
+      renderer_q[0] <= {
+        pixel_active ? colour_of(longint'(pixel_x), longint'(pixel_y)) : 24'hFF_FFFF,
+        h_sync,
+        v_sync,
+        ~pixel_active
+      };
+      for (int i = 1; i < RENDER_LATENCY; i++) renderer_q[i] <= renderer_q[i-1];
+    end
   end
-  assign rgb_in = renderer_q[PIXEL_LATENCY-1];
+  assign {rgb_in, h_sync_in, v_sync_in, blank_in} = renderer_q[RENDER_LATENCY-1];
 
   int errors = 0;
 
@@ -82,7 +97,6 @@ module tb_vga_controller;
   longint frames_checked = 0;
   longint lines_checked = 0;
   logic prev_hs = 1'b1, prev_vs = 1'b1, prev_blank_n = 1'b0;
-  bit checking = 1'b0;
 
   always @(negedge clk) begin
     if (rst) begin
@@ -187,7 +201,6 @@ module tb_vga_controller;
         fail($sformatf("colour %06h while blanked", {vga_r, vga_g, vga_b}));
       end
 
-      checking = 1'b1;
       prev_hs = vga_hs;
       prev_vs = vga_vs;
       prev_blank_n = vga_blank_n;
