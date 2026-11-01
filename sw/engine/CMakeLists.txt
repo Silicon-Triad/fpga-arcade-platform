@@ -13,6 +13,7 @@ add_library(arcade_engine
     screens/high_scores_screen.cpp
     screens/hardware_not_ready_screen.cpp
     screens/boot_screen.cpp
+    shutdown.cpp
     hint_text.cpp
     preview_api.cpp
     tick_clock.cpp

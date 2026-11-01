@@ -11,6 +11,7 @@
 #include "engine/file_system.hpp"
 #include "engine/game_loop.hpp"
 #include "engine/high_score_store.hpp"
+#include "engine/shutdown.hpp"
 #include "engine/tick_clock.hpp"
 #include "games/game_registry.hpp"
 
@@ -45,14 +46,17 @@ void printProfile(const GameLoopReport& report, std::FILE* log) {
 
 }  // namespace
 
-int runArcade(const Options& options, const BackendFactory& factory, std::FILE* log) {
+int runArcade(const Options& options, const BackendFactory& factory, std::FILE* log,
+              const std::function<bool()>& stopSignal) {
     // SR-FW-01: start the backend, then load tiles and palette before anything is presented.
     BackendStart backend = factory(options);
     if (backend.api == nullptr) {
         return fail(log, backend.failedStep);
     }
     EngineApi& api = *backend.api;
-    const auto stop = [&backend] { return backend.stopRequested && backend.stopRequested(); };
+    const auto stop = [&backend, &stopSignal] {
+        return (stopSignal && stopSignal()) || (backend.stopRequested && backend.stopRequested());
+    };
 
     const auto& gameTiles = assets::gameTilePatterns();
     const std::optional<TileSet> tiles = assets::buildTileSet(gameTiles.data(), gameTiles.size());
@@ -68,25 +72,49 @@ int runArcade(const Options& options, const BackendFactory& factory, std::FILE* 
     PosixFileSystem fs;
     scores.load(fs);
 
-    App app(api, kGameRegistry.data(), kGameRegistry.size(),
-            [&scores](std::uint8_t gameId) { return bestScoreOf(scores, gameId); });
+    // SR-UI-10, SR-FW-09. A failed save stays pending for the shutdown (SR-FW-13); noexcept, so
+    // out of memory while saving ends the program as any other failed allocation does.
+    const auto saveScores = [&scores, &fs, log]() noexcept {
+        if (scores.save(fs) != SaveStatus::Ok) {
+            (void)std::fprintf(log, "warning: high scores not saved\n");  // play goes on
+        }
+    };
+    App app(
+        api, kGameRegistry.data(), kGameRegistry.size(),
+        [&scores](std::uint8_t gameId) { return bestScoreOf(scores, gameId); }, &scores,
+        saveScores);
     MonotonicClock clock;
     GameLoop loop(api, clock, GameLoopConfig{options.profile});
 
-    // Section 3.1.1 screen 1, then the menu (SR-FW-01). A keyboard check belongs to the FPGA
-    // backend (#37): SDL always has one.
+    // Section 3.1.1 screen 1, then the menu (SR-FW-01). The Input Manager sends no event for a
+    // keyboard missing at start-up (SR-INP-16), so the backend is asked once.
+    app.setKeyboardMissing(backend.keyboardPresent && !backend.keyboardPresent());
     loop.setScreen(&app);
     for (int tick = 1; tick <= kSplashTicks && !stop(); ++tick) {
         app.boot().setProgress(tick, kSplashTicks);
         loop.runTick();
     }
     app.bootFinished();
-    loop.run(stop);
+    // SR-FW-14: signals and closing the window are seen here, between ticks, not in the handler.
+    loop.run([&app, &stop] { return app.state() == AppState::ShuttingDown || stop(); });
+    const bool confirmed = app.state() == AppState::ShuttingDown;
 
     if (options.profile) {
-        printProfile(loop.report(), log);
+        printProfile(loop.report(), log);  // before release: the report reads frameCount()
     }
-    return 0;
+    const auto savePending = [&scores, &fs, log] {
+        if (scores.savePending(fs) != SaveStatus::Ok) {
+            (void)std::fprintf(log, "warning: high scores not saved\n");  // the shutdown goes on
+        }
+    };
+    const auto release = [&backend, &api, &stop, confirmed] {
+        for (int tick = 0; confirmed && tick < backend.finalFrameTicks && !stop(); ++tick) {
+            (void)api.pollInput();  // keeps the PC window alive; no keys work (screen 10b)
+            (void)api.present();
+        }
+        backend.api.reset();  // SR-HAL-07: display enable stays set
+    };
+    return finishShutdown(api, app, confirmed, savePending, release);
 }
 
 }  // namespace arcade

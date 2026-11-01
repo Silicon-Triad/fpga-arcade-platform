@@ -91,6 +91,7 @@ std::optional<HighScoreRow> HighScoreStore::parseLine(std::string_view line) noe
 void HighScoreStore::load(FileSystem& fs, std::string_view path) {
     tables_ = {};
     nextSeq_ = 0;
+    savePending_ = false;
     // SR-FW-08: a missing or unreadable file gives an empty table.
     const std::optional<std::string> text = fs.readAll(std::string(path));
     if (!text) {
@@ -143,6 +144,22 @@ bool HighScoreStore::qualifies(std::uint8_t gameId, std::uint32_t score) const n
     return t.count < HISCORE_SLOTS || score > t.rows[t.count - 1].score;
 }
 
+std::uint8_t HighScoreStore::rankFor(std::uint8_t gameId, std::uint32_t score) const noexcept {
+    const GameTable& t = table(gameId);
+    std::uint8_t rank = kRankMin;
+    for (std::size_t i = 0; i < t.count && t.rows[i].score >= score; ++i) {
+        ++rank;
+    }
+    return rank;
+}
+
+SaveStatus HighScoreStore::savePending(FileSystem& fs, std::string_view path) {
+    if (!savePending_) {
+        return SaveStatus::Ok;
+    }
+    return save(fs, path);
+}
+
 std::optional<std::uint8_t> HighScoreStore::insert(std::uint8_t gameId,
                                                    const std::array<char, INITIALS_LEN>& initials,
                                                    std::uint32_t score) noexcept {
@@ -155,6 +172,7 @@ std::optional<std::uint8_t> HighScoreStore::insert(std::uint8_t gameId,
     HighScoreRow row{gameId, kRankMin, initials, score, static_cast<std::uint32_t>(nextSeq_)};
     ++nextSeq_;
     add(row);
+    savePending_ = true;
     const GameTable& t = tables_[gameId];
     for (std::size_t i = 0; i < t.count; ++i) {
         if (t.rows[i].seq == row.seq && t.rows[i].score == score) {
@@ -169,7 +187,7 @@ const HighScoreStore::GameTable& HighScoreStore::table(std::uint8_t gameId) cons
     return gameId < kHighScoreGameCount ? tables_[gameId] : kEmpty;
 }
 
-SaveStatus HighScoreStore::save(FileSystem& fs, std::string_view path) const {
+SaveStatus HighScoreStore::save(FileSystem& fs, std::string_view path) {
     // SC-03: each line holds only game_id,rank,initials,score,seq.
     std::string text;
     for (const GameTable& t : tables_) {
@@ -209,6 +227,7 @@ SaveStatus HighScoreStore::save(FileSystem& fs, std::string_view path) const {
     if (!fs.rename(temp, target)) {
         return SaveStatus::RenameFailed;
     }
+    savePending_ = false;  // SR-FW-13
     return SaveStatus::Ok;
 }
 

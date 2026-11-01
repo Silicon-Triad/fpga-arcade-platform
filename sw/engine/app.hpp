@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -30,14 +31,23 @@ namespace arcade {
 class App final : public Screen {
   public:
     /// Calls each row's factory once and builds the menu (SR-FW-04). Start-up only (R-4.1.6).
-    /// The state starts at Boot (Chapter 5).
-    App(EngineApi& api, const GameRegistryRow* rows, std::size_t rowCount, BestScoreFn bestScore);
+    /// The state starts at Boot (Chapter 5). `scores` gives HI and the top-10 check (SR-UI-04,
+    /// SR-UI-08). `saveScores` writes the table after a new entry and must not throw (SR-UI-10,
+    /// SR-FW-09).
+    App(EngineApi& api, const GameRegistryRow* rows, std::size_t rowCount, BestScoreFn bestScore,
+        HighScoreStore* scores = nullptr, std::function<void()> saveScores = {});
 
     /// Moves to `state` and sets its key-binding context (SR-INP-09).
     void setState(AppState state) noexcept;
     /// Start-up reports it is done: Boot goes to Menu (SR-FW-01). Does nothing in other states.
     /// Until then Boot stays, so the caller decides the progress and the timing.
     void bootFinished() noexcept;
+    /// Start-up reports that no keyboard is present (or that one is). Shows the row 60 message on
+    /// the Boot screen (section 3.1.1 screen 1, SR-INP-16) and the notice on later screens until
+    /// KeyboardFound, because the Input Manager sends no KeyboardLost in this case.
+    void setKeyboardMissing(bool missing) noexcept;
+    /// True while no keyboard is present (SR-UI-11, SR-UI-15).
+    bool keyboardMissing() const noexcept { return keyboardMissing_; }
     /// The Boot screen, for the caller to drive (SR-FW-01).
     BootScreen& boot() noexcept { return boot_; }
     /// The current state.
@@ -46,8 +56,12 @@ class App final : public Screen {
     Screen* screenFor(AppState state) noexcept;
     /// The menu.
     MenuScreen& menu() noexcept { return *menu_; }
+    /// The ShuttingDown screen, for finishShutdown() (SR-FW-13).
+    ShuttingDownScreen& shuttingDown() noexcept { return shuttingDown_; }
     /// The Playing screen.
     const PlayingScreen& playing() const noexcept { return playing_; }
+    /// True while sound is on (App. A soundOn, SR-FW-11).
+    bool soundOn() const noexcept { return soundOn_; }
 
     /// Runs the current screen and acts on what it requested (SR-UI-03).
     void update(const InputFrame& input) noexcept override;
@@ -55,20 +69,33 @@ class App final : public Screen {
     void render(EngineApi& api) noexcept override;
 
   private:
+    /// Handles the keys of Playing, Paused and GameOver; true if the tick is finished.
+    bool handleGameplayKeys(const InputFrame& input) noexcept;
+    /// Acts on KeyboardLost and KeyboardFound (SR-UI-11, SR-UI-15); true if the tick is finished.
+    bool handleKeyboardEvents(const InputFrame& input) noexcept;
+    /// Adds the confirmed entry, saves it and opens High Scores on it (SR-UI-10).
+    void finishInitials() noexcept;
+    /// Toggles sound once per Mute action in `input` (SR-FW-11).
+    void handleMute(const InputFrame& input) noexcept;
+
     EngineApi& api_;
+    HighScoreStore* scores_;
+    std::function<void()> saveScores_;
+    bool soundOn_ = true;  // SR-FW-11: the only copy; on at start-up, lasts until the program exits
     std::vector<std::unique_ptr<Game>> games_;
     std::unique_ptr<MenuScreen> menu_;
     BootScreen boot_;
     HardwareNotReadyScreen hardwareNotReady_;
-    HighScoresScreen highScores_;
+    HighScoresScreen highScores_{soundOn_};
     ShutdownConfirmScreen shutdownConfirm_;
     ShuttingDownScreen shuttingDown_;
-    PlayingScreen playing_;
-    PausedScreen paused_;
-    KeyboardLostScreen keyboardLost_;
-    GameOverScreen gameOver_;
+    PlayingScreen playing_{soundOn_};
+    PausedScreen paused_{playing_};
+    KeyboardLostScreen keyboardLost_{playing_};
+    GameOverScreen gameOver_{playing_};
     InitialsScreen initials_;
     AppState state_ = AppState::Boot;
+    bool keyboardMissing_ = false;
     InputContext playContext_ = InputContext::Snake;
 };
 

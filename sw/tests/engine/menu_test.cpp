@@ -154,8 +154,7 @@ TEST_P(BackFrom, SR_UI_07_SR_UI_12_BackReturnsToMenu) {
 
 INSTANTIATE_TEST_SUITE_P(Placeholders, BackFrom,
                          ::testing::Values(AppState::Playing, AppState::Paused, AppState::GameOver,
-                                           AppState::HighScores, AppState::Initials,
-                                           AppState::KeyboardLost, AppState::ShutdownConfirm));
+                                           AppState::HighScores, AppState::ShutdownConfirm));
 
 TEST(App, SR_UI_14_ShuttingDownIgnoresBack) {  // section 3.1.1 screen 10b: no keys work
     FakeEngineApi api;
