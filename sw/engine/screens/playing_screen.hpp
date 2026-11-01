@@ -16,6 +16,9 @@ namespace arcade {
 /// Screen of AppState::Playing (SR-FW-03, SR-UI-03, SR-UI-04).
 class PlayingScreen final : public Screen {
   public:
+    /// `soundOn` is the engine's sound state and must outlive the screen (SR-FW-11).
+    explicit PlayingScreen(const bool& soundOn) noexcept : soundOn_(soundOn) {}
+
     /// The table behind HI and the top-10 check; nullptr means none (HI 0, nothing qualifies).
     void setScores(const HighScoreStore* scores) noexcept { scores_ = scores; }
     /// Starts a new round of `game`; `hint` picks the hint bar (SR-FW-03, SR-UI-03).
@@ -33,18 +36,18 @@ class PlayingScreen final : public Screen {
     std::uint32_t highScore() const noexcept;
     /// True if the running game's score enters its top 10 (SR-UI-08).
     bool scoreQualifies() const noexcept;
-    /// Current sound state for hint bars (SR-UI-13); #14 will set it.
+    /// Current sound state for hint bars (SR-UI-13).
     bool soundOn() const noexcept { return soundOn_; }
 
   private:
     void drawHud(EngineApi& api) noexcept;
 
+    const bool& soundOn_;
     Game* game_ = nullptr;
     const HighScoreStore* scores_ = nullptr;
     std::uint8_t gameId_ = 0;
     std::string_view name_;
     HintScreen hint_ = HintScreen::Snake;
-    bool soundOn_ = true;
 };
 
 }  // namespace arcade

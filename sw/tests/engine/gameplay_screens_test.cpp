@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "assets/tile_ids.hpp"
@@ -25,6 +26,8 @@ class ScriptedGame final : public Game {
     void render(ArcadeApi&) noexcept override {}
     bool isOver() const noexcept override { return over; }
     std::uint32_t score() const noexcept override { return points; }
+    std::optional<int> lives() const noexcept override { return livesLeft; }
+    std::optional<int> livesLeft;
     int inits = 0;
     int ticks = 0;
     bool over = false;
@@ -206,12 +209,14 @@ TEST(GameplayHud, SR_UI_04_ScoreClampsToSixDigits) {
     EXPECT_EQ(scoreLine("SCORE", SCORE_MAX + 1).text(), "SCORE 999999");
 }
 
-TEST(GameplayHud, SR_UI_04_BreakoutHudMatchesScreen4LeftAndCentre) {
+TEST(GameplayHud, SR_UI_04_BreakoutHudMatchesScreen4) {
     FakeEngineApi api;
     App app(api, kBreakoutRow.data(), kBreakoutRow.size(), &noScore);
+    lastGame->livesLeft = 3;
     app.setState(AppState::Menu);
     app.update(press(Action::Select));
     app.render(api);
+    EXPECT_TRUE(drew(api, "119,1:LIVES 3"));
     EXPECT_TRUE(drew(api, "2,1:BREAKOUT"));
     EXPECT_TRUE(drew(api, "58,1:SCORE 000120"));
 }

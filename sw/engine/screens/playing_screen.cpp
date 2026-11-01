@@ -1,5 +1,10 @@
 #include "engine/screens/playing_screen.hpp"
 
+#include <array>
+#include <cstddef>
+#include <cstdio>
+#include <optional>
+
 #include "engine/ui_layout.hpp"
 
 namespace arcade {
@@ -8,6 +13,8 @@ namespace {
 constexpr int kHudRow = 1;        // section 3.1.1 common layout
 constexpr int kHudNameCol = 2;    // section 3.1.1 screens 3 and 4
 constexpr int kHudLastCol = 125;  // section 3.1.1 screens 3 and 4
+
+constexpr std::size_t kLivesTextMax = 16;
 
 }  // namespace
 
@@ -55,12 +62,18 @@ void PlayingScreen::drawHud(EngineApi& api) noexcept {
     const ScoreLine score = scoreLine("SCORE", game_->score());
     api.drawText(centredCol(static_cast<int>(score.length), TextScale::X1), kHudRow, score.text(),
                  TextScale::X1);
-    if (hint_ == HintScreen::Snake) {
+    if (const std::optional<int> lives = game_->lives()) {
+        std::array<char, kLivesTextMax> text{};
+        const int length = std::snprintf(text.data(), text.size(), "LIVES %d", *lives);
+        if (length > 0 && length < static_cast<int>(text.size())) {
+            api.drawText(rightAlignedCol(length, kHudLastCol), kHudRow,
+                         {text.data(), static_cast<std::size_t>(length)}, TextScale::X1);
+        }
+    } else {
         const ScoreLine hi = scoreLine("HI", highScore());
         api.drawText(rightAlignedCol(static_cast<int>(hi.length), kHudLastCol), kHudRow, hi.text(),
                      TextScale::X1);
     }
-    // Breakout's "LIVES n" needs Game::lives(), frozen-interface issue #92.
 }
 
 std::uint32_t PlayingScreen::highScore() const noexcept {
