@@ -1,0 +1,6 @@
+// Lint waivers used by make -C hw/sim lint (run.sh).
+// A module that uses arcade_regs_pkg needs only a few of its constants; the rest would be
+// reported as UNUSEDPARAM under -Wall. The package is frozen (AGENTS.md section 6, R-6.1),
+// so the waiver lives here and is scoped to that one file. Refs #30.
+`verilator_config
+lint_off -rule UNUSEDPARAM -file "*/hw/rtl/arcade_regs_pkg.sv"
