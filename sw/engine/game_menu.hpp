@@ -47,6 +47,8 @@ class MenuScreen final : public Screen {
     std::size_t entryCount() const noexcept { return games_.size() + 1; }
     /// Name of entry `index`; the last entry is SCORES (SR-UI-01).
     std::string_view entryName(std::size_t index) const noexcept;
+    /// The games, by menu_order (SR-FW-04).
+    const std::vector<MenuGame>& games() const noexcept { return games_; }
     /// The highlighted entry (App. A menuSelection).
     std::size_t selection() const noexcept { return selection_; }
     /// The selected game, or nullptr on SCORES.

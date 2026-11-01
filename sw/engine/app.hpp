@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -31,9 +32,10 @@ class App final : public Screen {
   public:
     /// Calls each row's factory once and builds the menu (SR-FW-04). Start-up only (R-4.1.6).
     /// The state starts at Boot (Chapter 5). `scores` gives HI and the top-10 check (SR-UI-04,
-    /// SR-UI-08).
+    /// SR-UI-08). `saveScores` writes the table after a new entry and must not throw (SR-UI-10,
+    /// SR-FW-09).
     App(EngineApi& api, const GameRegistryRow* rows, std::size_t rowCount, BestScoreFn bestScore,
-        const HighScoreStore* scores = nullptr);
+        HighScoreStore* scores = nullptr, std::function<void()> saveScores = {});
 
     /// Moves to `state` and sets its key-binding context (SR-INP-09).
     void setState(AppState state) noexcept;
@@ -63,16 +65,20 @@ class App final : public Screen {
   private:
     /// Handles the keys of Playing, Paused and GameOver; true if the tick is finished.
     bool handleGameplayKeys(const InputFrame& input) noexcept;
+    /// Adds the confirmed entry, saves it and opens High Scores on it (SR-UI-10).
+    void finishInitials() noexcept;
     /// Toggles sound once per Mute action in `input` (SR-FW-11).
     void handleMute(const InputFrame& input) noexcept;
 
     EngineApi& api_;
+    HighScoreStore* scores_;
+    std::function<void()> saveScores_;
     bool soundOn_ = true;  // SR-FW-11: the only copy; on at start-up, lasts until the program exits
     std::vector<std::unique_ptr<Game>> games_;
     std::unique_ptr<MenuScreen> menu_;
     BootScreen boot_;
     HardwareNotReadyScreen hardwareNotReady_;
-    HighScoresScreen highScores_;
+    HighScoresScreen highScores_{soundOn_};
     ShutdownConfirmScreen shutdownConfirm_;
     ShuttingDownScreen shuttingDown_;
     PlayingScreen playing_{soundOn_};

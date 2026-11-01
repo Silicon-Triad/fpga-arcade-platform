@@ -144,6 +144,15 @@ bool HighScoreStore::qualifies(std::uint8_t gameId, std::uint32_t score) const n
     return t.count < HISCORE_SLOTS || score > t.rows[t.count - 1].score;
 }
 
+std::uint8_t HighScoreStore::rankFor(std::uint8_t gameId, std::uint32_t score) const noexcept {
+    const GameTable& t = table(gameId);
+    std::uint8_t rank = kRankMin;
+    for (std::size_t i = 0; i < t.count && t.rows[i].score >= score; ++i) {
+        ++rank;
+    }
+    return rank;
+}
+
 SaveStatus HighScoreStore::savePending(FileSystem& fs, std::string_view path) {
     if (!savePending_) {
         return SaveStatus::Ok;
