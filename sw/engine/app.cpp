@@ -32,13 +32,12 @@ std::optional<InputContext> contextFor(AppState state, InputContext playContext)
 // HardwareNotReady (SF-02 exits) and ShuttingDown (section 3.1.1 screen 10b: no keys work).
 bool backReturnsToMenu(AppState state) noexcept {
     switch (state) {
-        case AppState::Playing:          // #10
-        case AppState::Paused:           // #10
-        case AppState::GameOver:         // #10
-        case AppState::HighScores:       // #12
-        case AppState::Initials:         // #12
-        case AppState::KeyboardLost:     // #13
-        case AppState::ShutdownConfirm:  // #15
+        case AppState::Playing:       // #10
+        case AppState::Paused:        // #10
+        case AppState::GameOver:      // #10
+        case AppState::HighScores:    // #12
+        case AppState::Initials:      // #12
+        case AppState::KeyboardLost:  // #13
             return true;
         default:
             return false;
@@ -133,6 +132,15 @@ void App::update(const InputFrame& input) noexcept {
         return;
     }
     screenFor(state_)->update(input);
+    if (state_ == AppState::ShutdownConfirm) {
+        const ShutdownConfirmScreen::Request answer = shutdownConfirm_.takeRequest();
+        if (answer == ShutdownConfirmScreen::Request::Confirm) {
+            setState(AppState::ShuttingDown);  // SR-UI-14
+        } else if (answer == ShutdownConfirmScreen::Request::Cancel) {
+            setState(AppState::Menu);  // SR-UI-14
+        }
+        return;
+    }
     if (state_ != AppState::Menu) {
         return;
     }
@@ -147,9 +155,16 @@ void App::update(const InputFrame& input) noexcept {
         setState(AppState::Playing);
     } else if (request == MenuScreen::Request::Scores) {
         setState(AppState::HighScores);
+    } else if (request == MenuScreen::Request::Shutdown) {
+        setState(AppState::ShutdownConfirm);  // SR-UI-14
     }
 }
 
-void App::render(EngineApi& api) noexcept { screenFor(state_)->render(api); }
+void App::render(EngineApi& api) noexcept {
+    if (state_ == AppState::ShutdownConfirm) {
+        menu_->render(api);  // section 3.1.1 screen 10a: the main menu stays in place
+    }
+    screenFor(state_)->render(api);
+}
 
 }  // namespace arcade

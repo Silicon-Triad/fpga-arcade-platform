@@ -43,8 +43,13 @@ class HighScoreStore {
     void load(FileSystem& fs, std::string_view path = HISCORE_FILE);
 
     /// Writes the table to `path` + ".tmp", calls fsync(), then rename() over `path`
-    /// (SR-FW-09). Each line holds only game_id,rank,initials,score,seq (SC-03).
-    SaveStatus save(FileSystem& fs, std::string_view path = HISCORE_FILE) const;
+    /// (SR-FW-09). Each line holds only game_id,rank,initials,score,seq (SC-03). Success clears any
+    /// pending save (SR-FW-13).
+    SaveStatus save(FileSystem& fs, std::string_view path = HISCORE_FILE);
+
+    /// Saves as save() does if an insert() has not been saved yet, so nothing is lost on shutdown
+    /// (SR-FW-13). Ok if nothing is pending; after a failure the save stays pending.
+    SaveStatus savePending(FileSystem& fs, std::string_view path = HISCORE_FILE);
 
     /// True if `score` would enter `gameId`'s top 10 (SR-FW-10, used by SR-UI-08). An equal
     /// score ranks below older entries, so it qualifies only while a slot is free.
@@ -70,6 +75,7 @@ class HighScoreStore {
     /// Next seq to assign; above UINT32 max once every seq is used, so no seq repeats
     /// (SR-FW-10).
     std::uint64_t nextSeq_ = 0;
+    bool savePending_ = false;  ///< An insert() has not reached HISCORE_FILE yet (SR-FW-13).
 };
 
 }  // namespace arcade
