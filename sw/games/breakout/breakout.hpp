@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 #include "arcade/arcade_api.hpp"
 #include "arcade/game.hpp"
@@ -96,13 +97,15 @@ class Breakout final : public Game {
     /// Points so far, at most SCORE_MAX (SR-GAM-12).
     std::uint32_t score() const noexcept override { return score_; }
 
+    /// Lives left, 0 to START_LIVES (SR-GAM-13, SR-UI-04).
+    std::optional<int> lives() const noexcept override { return lives_; }
+
     BreakoutState state() const noexcept { return state_; }
     int paddleX() const noexcept { return paddleX_; }
     int ballX() const noexcept { return ballX_; }
     int ballY() const noexcept { return ballY_; }
     int ballDx() const noexcept { return ballDx_; }
     int ballDy() const noexcept { return ballDy_; }
-    int lives() const noexcept { return lives_; }
     int level() const noexcept { return level_; }
     bool brick(int col, int row) const noexcept;
     int bricksLeft() const noexcept { return bricksLeft_; }

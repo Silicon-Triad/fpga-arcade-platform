@@ -419,5 +419,12 @@ TEST(Breakout, NoSoundWithoutEvent) {
     EXPECT_TRUE(api.sounds.empty());
 }
 
+TEST(Breakout, SR_UI_04_LivesReadableThroughGameInterface) {
+    Breakout breakout(0, 0);
+    breakout.init();
+    const Game& game = breakout;
+    EXPECT_EQ(game.lives(), START_LIVES);
+}
+
 }  // namespace
 }  // namespace arcade
