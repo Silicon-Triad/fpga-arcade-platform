@@ -136,6 +136,10 @@ void App::update(const InputFrame& input) noexcept {
     if (handleGameplayKeys(input)) {
         return;
     }
+    if (state_ == AppState::Initials && pressed(input, Action::Select)) {
+        setState(AppState::Menu);  // stand-in until #12: Initials has no Back key, so Enter leaves
+        return;
+    }
     screenFor(state_)->update(input);
     if (state_ == AppState::Playing && playing_.game() != nullptr && playing_.game()->isOver()) {
         // SR-UI-08
