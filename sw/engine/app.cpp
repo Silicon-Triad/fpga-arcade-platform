@@ -210,10 +210,10 @@ void App::handleMute(const InputFrame& input) noexcept {
 }
 
 void App::update(const InputFrame& input) noexcept {
-    handleMute(input);  // first, so the Mute is not lost if a key below ends the tick
-    if (handleKeyboardEvents(input)) {
+    if (handleKeyboardEvents(input)) {  // first: no key acts in the tick of an unplug
         return;
     }
+    handleMute(input);  // before the keys, so the Mute is not lost if one of them ends the tick
     if (backReturnsToMenu(state_) && pressed(input, Action::Back)) {
         setState(AppState::Menu);  // SR-UI-12
         return;

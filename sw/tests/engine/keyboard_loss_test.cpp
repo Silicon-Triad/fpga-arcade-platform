@@ -134,6 +134,15 @@ TEST_F(KeyboardLossTest, SR_UI_11_KeysBeforeTheUnplugInTheSameTickAreNotActedOn)
     EXPECT_EQ(app.state(), AppState::KeyboardLost);
 }
 
+TEST_F(KeyboardLossTest, SR_UI_11_MuteBeforeTheUnplugInTheSameTickIsNotActedOn) {
+    InputFrame frame = press(Action::Mute);
+    frame.events[1].type = InputEventType::KeyboardLost;
+    frame.count = 2;
+    app.update(frame);
+    EXPECT_TRUE(app.soundOn());
+    EXPECT_TRUE(api.mutes.empty());
+}
+
 TEST_F(KeyboardLossTest, SR_UI_11_SecondKeyboardInTheSameTickStaysPaused) {
     InputFrame frame = lost();
     frame.events[1].type = InputEventType::KeyboardFound;
