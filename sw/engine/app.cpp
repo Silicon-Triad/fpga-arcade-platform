@@ -1,10 +1,18 @@
 #include "engine/app.hpp"
 
 #include <optional>
+#include <string_view>
 #include <utility>
+
+#include "engine/ui_layout.hpp"
 
 namespace arcade {
 namespace {
+
+// SR-UI-15. DESIGN CHOICE, NOT AN SRS VALUE: the SRS names the notice but gives no layout. Row 90
+// is free on the menu, initials and high-score screens, and only overlays the game-over picture.
+constexpr int kNoticeRow = 90;
+constexpr std::string_view kNoKeyboardNotice = "NO KEYBOARD - PLUG IN A USB KEYBOARD";
 
 // TBL-KeyBinding context of `state`; nullopt for states with no keys (section 3.1.1).
 std::optional<InputContext> contextFor(AppState state, InputContext playContext) noexcept {
@@ -34,8 +42,21 @@ std::optional<InputContext> contextFor(AppState state, InputContext playContext)
 // (section 3.1.1 screen 10b: no keys work).
 bool backReturnsToMenu(AppState state) noexcept {
     switch (state) {
-        case AppState::HighScores:    // SR-UI-12
-        case AppState::KeyboardLost:  // #13
+        case AppState::HighScores:  // SR-UI-12
+            return true;
+        default:
+            return false;
+    }
+}
+
+// SR-UI-15, plus the shutdown box: the menu stays under it (section 3.1.1 screen 10a).
+bool showsKeyboardNotice(AppState state) noexcept {
+    switch (state) {
+        case AppState::Menu:
+        case AppState::HighScores:
+        case AppState::ShutdownConfirm:
+        case AppState::GameOver:
+        case AppState::Initials:
             return true;
         default:
             return false;
@@ -83,6 +104,11 @@ void App::bootFinished() noexcept {
     }
 }
 
+void App::setKeyboardMissing(bool missing) noexcept {
+    keyboardMissing_ = missing;
+    boot_.setKeyboardMissing(missing);  // section 3.1.1 screen 1
+}
+
 Screen* App::screenFor(AppState state) noexcept {
     switch (state) {
         case AppState::Boot:
@@ -109,6 +135,27 @@ Screen* App::screenFor(AppState state) noexcept {
             return &initials_;
     }
     return &boot_;
+}
+
+bool App::handleKeyboardEvents(const InputFrame& input) noexcept {
+    bool finished = false;
+    for (std::size_t i = 0; i < input.count; ++i) {
+        const InputEventType type = input.events[i].type;
+        if (type == InputEventType::KeyboardLost) {
+            setKeyboardMissing(true);
+            if (state_ == AppState::Playing || state_ == AppState::Paused) {
+                setState(AppState::KeyboardLost);  // SR-UI-11: within 1 tick
+            }
+            finished = true;  // a key sent just before the unplug must not quit the game (SF-03)
+        } else if (type == InputEventType::KeyboardFound) {
+            setKeyboardMissing(false);
+            if (state_ == AppState::KeyboardLost) {
+                setState(AppState::Paused);  // SR-UI-11: resumes only on Pause
+                finished = true;
+            }
+        }
+    }
+    return finished;
 }
 
 bool App::handleGameplayKeys(const InputFrame& input) noexcept {
@@ -163,7 +210,10 @@ void App::handleMute(const InputFrame& input) noexcept {
 }
 
 void App::update(const InputFrame& input) noexcept {
-    handleMute(input);  // first, so the Mute is not lost if a key below ends the tick
+    if (handleKeyboardEvents(input)) {  // first: no key acts in the tick of an unplug
+        return;
+    }
+    handleMute(input);  // before the keys, so the Mute is not lost if one of them ends the tick
     if (backReturnsToMenu(state_) && pressed(input, Action::Back)) {
         setState(AppState::Menu);  // SR-UI-12
         return;
@@ -222,6 +272,9 @@ void App::render(EngineApi& api) noexcept {
         menu_->render(api);  // section 3.1.1 screen 10a: the main menu stays in place
     }
     screenFor(state_)->render(api);
+    if (keyboardMissing_ && showsKeyboardNotice(state_)) {
+        drawCentred(api, kNoticeRow, kNoKeyboardNotice, TextScale::X1);  // SR-UI-15
+    }
 }
 
 }  // namespace arcade

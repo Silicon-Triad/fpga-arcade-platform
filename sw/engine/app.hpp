@@ -42,6 +42,12 @@ class App final : public Screen {
     /// Start-up reports it is done: Boot goes to Menu (SR-FW-01). Does nothing in other states.
     /// Until then Boot stays, so the caller decides the progress and the timing.
     void bootFinished() noexcept;
+    /// Start-up reports that no keyboard is present (or that one is). Shows the row 60 message on
+    /// the Boot screen (section 3.1.1 screen 1, SR-INP-16) and the notice on later screens until
+    /// KeyboardFound, because the Input Manager sends no KeyboardLost in this case.
+    void setKeyboardMissing(bool missing) noexcept;
+    /// True while no keyboard is present (SR-UI-11, SR-UI-15).
+    bool keyboardMissing() const noexcept { return keyboardMissing_; }
     /// The Boot screen, for the caller to drive (SR-FW-01).
     BootScreen& boot() noexcept { return boot_; }
     /// The current state.
@@ -65,6 +71,8 @@ class App final : public Screen {
   private:
     /// Handles the keys of Playing, Paused and GameOver; true if the tick is finished.
     bool handleGameplayKeys(const InputFrame& input) noexcept;
+    /// Acts on KeyboardLost and KeyboardFound (SR-UI-11, SR-UI-15); true if the tick is finished.
+    bool handleKeyboardEvents(const InputFrame& input) noexcept;
     /// Adds the confirmed entry, saves it and opens High Scores on it (SR-UI-10).
     void finishInitials() noexcept;
     /// Toggles sound once per Mute action in `input` (SR-FW-11).
@@ -83,10 +91,11 @@ class App final : public Screen {
     ShuttingDownScreen shuttingDown_;
     PlayingScreen playing_{soundOn_};
     PausedScreen paused_{playing_};
-    KeyboardLostScreen keyboardLost_;
+    KeyboardLostScreen keyboardLost_{playing_};
     GameOverScreen gameOver_{playing_};
     InitialsScreen initials_;
     AppState state_ = AppState::Boot;
+    bool keyboardMissing_ = false;
     InputContext playContext_ = InputContext::Snake;
 };
 

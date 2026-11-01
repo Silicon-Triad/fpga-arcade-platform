@@ -3,6 +3,7 @@ arcade_add_test(high_score_store_test SOURCES high_score_store_test.cpp LIBS arc
 arcade_add_test(ui_layout_test SOURCES ui_layout_test.cpp LIBS arcade_engine)
 arcade_add_test(menu_test SOURCES menu_test.cpp LIBS arcade_engine)
 arcade_add_test(gameplay_screens_test SOURCES gameplay_screens_test.cpp LIBS arcade_engine)
+arcade_add_test(keyboard_loss_test SOURCES keyboard_loss_test.cpp LIBS arcade_engine)
 arcade_add_test(initials_highscores_test SOURCES initials_highscores_test.cpp LIBS arcade_engine)
 arcade_add_test(shutdown_test SOURCES shutdown_test.cpp LIBS arcade_engine)
 arcade_add_test(sound_test SOURCES sound_test.cpp LIBS arcade_engine)
