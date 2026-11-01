@@ -5,7 +5,7 @@ module vga_controller (
     input logic clk,  // 65.000 MHz pixel clock (SR-VGA-01)
     input logic rst,  // synchronous, active high
 
-    // Control Register display-enable bit (§3.1.4), from the bridge register clock domain (#28)
+    // Control Register display-enable bit (§3.1.4), from bridge_regs on this same clock (A2)
     input logic display_enable,
 
     // To the Tile Renderer, cycle 0 (active high)
@@ -44,17 +44,12 @@ module vga_controller (
       .vblank_start(vblank_start)
   );
 
-  // display_enable crosses from the bridge register clock domain into this pixel clock domain:
-  // two-flop synchronizer (R-4.2.5). Resets to 0, the register map reset value (black, SR-VGA-09).
-  logic display_enable_meta_q, display_enable_q;
+  // Same clock as bridge_regs (A2), no synchronizer needed (R-4.2.5). One register to break up the
+  // path. Resets to 0, the register map reset value (black, SR-VGA-09).
+  logic display_enable_q;
   always_ff @(posedge clk) begin
-    if (rst) begin
-      display_enable_meta_q <= 1'b0;
-      display_enable_q <= 1'b0;
-    end else begin
-      display_enable_meta_q <= display_enable;
-      display_enable_q <= display_enable_meta_q;
-    end
+    if (rst) display_enable_q <= 1'b0;
+    else display_enable_q <= display_enable;
   end
 
   always_ff @(posedge clk) begin
