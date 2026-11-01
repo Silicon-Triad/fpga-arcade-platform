@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
 #include "arcade/arcade_api.hpp"
 #include "arcade/types.hpp"
@@ -35,6 +36,9 @@ class Game {
 
     /// Current score, 0 to SCORE_MAX (SR-FW-03, TBL-HighScore score UINT32).
     virtual std::uint32_t score() const noexcept = 0;
+
+    /// Lives left, or nullopt for a game without lives (SR-UI-04).
+    virtual std::optional<int> lives() const noexcept { return std::nullopt; }
 };
 
 }  // namespace arcade
