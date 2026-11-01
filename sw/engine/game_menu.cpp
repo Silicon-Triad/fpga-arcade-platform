@@ -44,7 +44,7 @@ constexpr std::uint32_t kPreviewKeyTicks = 60;
 }  // namespace
 
 MenuScreen::MenuScreen(std::vector<MenuGame> games, BestScoreFn bestScore)
-    : games_(std::move(games)), bestScore_(bestScore) {
+    : games_(std::move(games)), bestScore_(std::move(bestScore)) {
     // SR-FW-04: the menu order comes only from the registry.
     std::sort(games_.begin(), games_.end(), [](const MenuGame& a, const MenuGame& b) {
         return a.row->menu_order < b.row->menu_order;

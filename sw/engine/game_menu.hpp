@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string_view>
 #include <vector>
 
@@ -13,7 +14,7 @@
 namespace arcade {
 
 /// Returns a game's best score for the menu; #76 supplies the real lookup.
-using BestScoreFn = std::uint32_t (*)(std::uint8_t gameId);
+using BestScoreFn = std::function<std::uint32_t(std::uint8_t gameId)>;
 
 /// One game of the menu: its registry row and the object the row's factory made.
 struct MenuGame {
