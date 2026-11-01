@@ -32,9 +32,6 @@ std::optional<InputContext> contextFor(AppState state, InputContext playContext)
 // HardwareNotReady (SF-02 exits) and ShuttingDown (section 3.1.1 screen 10b: no keys work).
 bool backReturnsToMenu(AppState state) noexcept {
     switch (state) {
-        case AppState::Playing:          // #10
-        case AppState::Paused:           // #10
-        case AppState::GameOver:         // #10
         case AppState::HighScores:       // #12
         case AppState::Initials:         // #12
         case AppState::KeyboardLost:     // #13
@@ -45,10 +42,10 @@ bool backReturnsToMenu(AppState state) noexcept {
     }
 }
 
-bool backPressed(const InputFrame& input) noexcept {
+bool pressed(const InputFrame& input, Action action) noexcept {
     for (std::size_t i = 0; i < input.count; ++i) {
         const InputEvent& event = input.events[i];
-        if (event.type == InputEventType::KeyDown && event.action == Action::Back) {
+        if (event.type == InputEventType::KeyDown && event.action == action) {
             return true;
         }
     }
@@ -57,8 +54,10 @@ bool backPressed(const InputFrame& input) noexcept {
 
 }  // namespace
 
-App::App(EngineApi& api, const GameRegistryRow* rows, std::size_t rowCount, BestScoreFn bestScore)
+App::App(EngineApi& api, const GameRegistryRow* rows, std::size_t rowCount, BestScoreFn bestScore,
+         const HighScoreStore* scores)
     : api_(api) {
+    playing_.setScores(scores);
     std::vector<MenuGame> menuGames;
     games_.reserve(rowCount);
     menuGames.reserve(rowCount);
@@ -110,12 +109,39 @@ Screen* App::screenFor(AppState state) noexcept {
     return &boot_;
 }
 
+bool App::handleGameplayKeys(const InputFrame& input) noexcept {
+    if (state_ != AppState::Playing && state_ != AppState::Paused && state_ != AppState::GameOver) {
+        return false;
+    }
+    if (pressed(input, Action::Back)) {
+        setState(AppState::Menu);  // SR-UI-07, SR-UI-09: nothing is saved
+    } else if (state_ == AppState::Playing && pressed(input, Action::Pause)) {
+        setState(AppState::Paused);  // SR-UI-05
+    } else if (state_ == AppState::Paused && pressed(input, Action::Pause)) {
+        setState(AppState::Playing);  // SR-UI-06
+    } else if (state_ == AppState::GameOver && pressed(input, Action::Select)) {
+        playing_.restart();  // SR-UI-09
+        setState(AppState::Playing);
+    } else {
+        return false;
+    }
+    return true;
+}
+
 void App::update(const InputFrame& input) noexcept {
-    if (backReturnsToMenu(state_) && backPressed(input)) {
-        setState(AppState::Menu);  // SR-UI-07, SR-UI-12
+    if (backReturnsToMenu(state_) && pressed(input, Action::Back)) {
+        setState(AppState::Menu);  // SR-UI-12
+        return;
+    }
+    if (handleGameplayKeys(input)) {
         return;
     }
     screenFor(state_)->update(input);
+    if (state_ == AppState::Playing && playing_.game() != nullptr && playing_.game()->isOver()) {
+        // SR-UI-08
+        setState(playing_.scoreQualifies() ? AppState::Initials : AppState::GameOver);
+        return;
+    }
     if (state_ != AppState::Menu) {
         return;
     }
@@ -123,9 +149,10 @@ void App::update(const InputFrame& input) noexcept {
     if (request == MenuScreen::Request::StartGame) {  // SR-UI-03: same tick
         const MenuGame* selected = menu_->selectedGame();
         // TBL-KeyBinding has contexts for the two release games only; others use Breakout's.
-        playContext_ =
-            selected->row->game_id == kGameIdSnake ? InputContext::Snake : InputContext::Breakout;
-        playing_.start(*selected->game);
+        const bool snake = selected->row->game_id == kGameIdSnake;
+        playContext_ = snake ? InputContext::Snake : InputContext::Breakout;
+        playing_.start(*selected->game, selected->row->game_id, selected->row->name,
+                       snake ? HintScreen::Snake : HintScreen::Breakout);
         setState(AppState::Playing);
     } else if (request == MenuScreen::Request::Scores) {
         setState(AppState::HighScores);

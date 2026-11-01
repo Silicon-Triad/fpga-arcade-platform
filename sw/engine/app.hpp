@@ -30,8 +30,10 @@ namespace arcade {
 class App final : public Screen {
   public:
     /// Calls each row's factory once and builds the menu (SR-FW-04). Start-up only (R-4.1.6).
-    /// The state starts at Boot (Chapter 5).
-    App(EngineApi& api, const GameRegistryRow* rows, std::size_t rowCount, BestScoreFn bestScore);
+    /// The state starts at Boot (Chapter 5). `scores` gives HI and the top-10 check (SR-UI-04,
+    /// SR-UI-08).
+    App(EngineApi& api, const GameRegistryRow* rows, std::size_t rowCount, BestScoreFn bestScore,
+        const HighScoreStore* scores = nullptr);
 
     /// Moves to `state` and sets its key-binding context (SR-INP-09).
     void setState(AppState state) noexcept;
@@ -55,6 +57,9 @@ class App final : public Screen {
     void render(EngineApi& api) noexcept override;
 
   private:
+    /// Handles the keys of Playing, Paused and GameOver; true if the tick is finished.
+    bool handleGameplayKeys(const InputFrame& input) noexcept;
+
     EngineApi& api_;
     std::vector<std::unique_ptr<Game>> games_;
     std::unique_ptr<MenuScreen> menu_;
@@ -64,9 +69,9 @@ class App final : public Screen {
     ShutdownConfirmScreen shutdownConfirm_;
     ShuttingDownScreen shuttingDown_;
     PlayingScreen playing_;
-    PausedScreen paused_;
+    PausedScreen paused_{playing_};
     KeyboardLostScreen keyboardLost_;
-    GameOverScreen gameOver_;
+    GameOverScreen gameOver_{playing_};
     InitialsScreen initials_;
     AppState state_ = AppState::Boot;
     InputContext playContext_ = InputContext::Snake;
