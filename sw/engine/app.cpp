@@ -121,6 +121,7 @@ bool App::handleGameplayKeys(const InputFrame& input) noexcept {
         setState(AppState::Playing);  // SR-UI-06
     } else if (state_ == AppState::GameOver && pressed(input, Action::Select)) {
         playing_.restart();  // SR-UI-09
+        api_.playSound(EffectId::MenuSelect);  // SR-GAM-16
         setState(AppState::Playing);
     } else {
         return false;

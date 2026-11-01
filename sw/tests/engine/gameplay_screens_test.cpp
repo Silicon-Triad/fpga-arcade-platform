@@ -168,6 +168,12 @@ TEST_F(GameOverTest, SR_UI_09_SelectRestartsSameGame) {
     EXPECT_FALSE(game->isOver());
 }
 
+TEST_F(GameOverTest, SR_GAM_16_RestartPlaysMenuSelect) {
+    const int sounds = api.sounds;
+    app.update(press(Action::Select));
+    EXPECT_EQ(api.sounds, sounds + 1);
+}
+
 TEST_F(GameOverTest, SR_UI_09_BackGoesToMenu) {
     app.update(press(Action::Back));
     EXPECT_EQ(app.state(), AppState::Menu);
