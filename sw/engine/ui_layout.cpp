@@ -1,5 +1,9 @@
 #include "engine/ui_layout.hpp"
 
+#include <algorithm>
+#include <cstdio>
+
+#include "arcade/tables.hpp"
 #include "assets/tile_ids.hpp"
 
 namespace arcade {
@@ -55,6 +59,15 @@ ApiStatus drawBox(ArcadeApi& api, int col, int row, int width, int height,
 
 ApiStatus drawDivider(ArcadeApi& api, int col, int row, int width) noexcept {
     return api.fillRect(col, row, width, 1, assets::kTileDivider);
+}
+
+ScoreLine scoreLine(std::string_view label, std::uint32_t score) noexcept {
+    ScoreLine line;
+    const int length = std::snprintf(
+        line.chars.data(), line.chars.size(), "%.*s %06u", static_cast<int>(label.size()),
+        label.data(), static_cast<unsigned>(std::min(score, SCORE_MAX)));  // SR-UI-04
+    line.length = std::min(static_cast<std::size_t>(std::max(length, 0)), line.chars.size() - 1);
+    return line;
 }
 
 }  // namespace arcade

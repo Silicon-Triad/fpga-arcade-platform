@@ -26,6 +26,8 @@ class FakeEngineApi final : public EngineApi {
         return ApiStatus::Ok;
     }
     ApiStatus drawText(int col, int row, std::string_view text, TextScale scale) noexcept override {
+        placed.emplace_back(std::to_string(col) + "," + std::to_string(row) + ":" +
+                            std::string(text));
         texts.emplace_back(std::to_string(row) + ":" + std::string(text));
         return assets::textToTiles(
             col, row, text, scale,
@@ -39,6 +41,7 @@ class FakeEngineApi final : public EngineApi {
             line.fill(tile);
         }
         texts.clear();
+        placed.clear();
     }
     ApiStatus present() noexcept override {
         ++presents;
@@ -64,6 +67,7 @@ class FakeEngineApi final : public EngineApi {
 
     std::array<std::array<TileIndex, kGridCols>, kGridRows> cells{};
     std::vector<std::string> texts;
+    std::vector<std::string> placed;  ///< "col,row:text" of each drawText since clear().
     std::vector<InputContext> contexts;
     int sounds = 0;
     std::vector<EffectId> effects;  ///< Every playSound() call, in order.

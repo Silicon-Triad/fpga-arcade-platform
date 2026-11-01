@@ -72,8 +72,9 @@ int runArcade(const Options& options, const BackendFactory& factory, std::FILE* 
     PosixFileSystem fs;
     scores.load(fs);
 
-    App app(api, kGameRegistry.data(), kGameRegistry.size(),
-            [&scores](std::uint8_t gameId) { return bestScoreOf(scores, gameId); });
+    App app(
+        api, kGameRegistry.data(), kGameRegistry.size(),
+        [&scores](std::uint8_t gameId) { return bestScoreOf(scores, gameId); }, &scores);
     MonotonicClock clock;
     GameLoop loop(api, clock, GameLoopConfig{options.profile});
 
