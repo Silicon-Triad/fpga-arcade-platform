@@ -55,6 +55,10 @@ class HighScoreStore {
     /// score ranks below older entries, so it qualifies only while a slot is free.
     bool qualifies(std::uint8_t gameId, std::uint32_t score) const noexcept;
 
+    /// The rank a new entry of `score` would get: below every older entry with an equal or higher
+    /// score (SR-FW-10). Above kRankMax if it does not qualify. Shown on screen 7 before insert().
+    std::uint8_t rankFor(std::uint8_t gameId, std::uint32_t score) const noexcept;
+
     /// Adds an entry with the next seq and returns its rank, or std::nullopt if it does not
     /// qualify, is invalid, or every seq is used (SR-FW-10, SC-04). An 11th entry drops the
     /// lowest.
