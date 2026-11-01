@@ -94,7 +94,7 @@ Run every command from the **repository root**. Tool versions and installation a
 | Configure and build for the PC (SDL2 backend, tests) | `cmake --preset pc-debug && cmake --build --preset pc-debug` |
 | Run all unit tests | `ctest --preset pc-debug --output-on-failure` |
 | Run one test binary | `ctest --preset pc-debug -R <name> --output-on-failure` |
-| Coverage report (the ≥ 80 % gate on `sw/engine/` and `sw/games/`, QA-04, is added by #24) | `cmake --preset pc-coverage && cmake --build --preset pc-coverage && ctest --preset pc-coverage && cmake --build --preset pc-coverage --target coverage` |
+| Coverage report and gate (fails below 80 % line coverage of `sw/engine/` plus `sw/games/`, QA-04) | `cmake --preset pc-coverage && cmake --build --preset pc-coverage && ctest --preset pc-coverage && cmake --build --preset pc-coverage --target coverage` |
 | Cross-build for the board | `cmake --preset de1soc-release && cmake --build --preset de1soc-release` |
 | Run on the PC | `./build/pc-debug/sw/app/arcade --backend=sdl` |
 | Run on the board (as root) | `./arcade --backend=fpga` |
@@ -123,7 +123,7 @@ Run every command from the **repository root**. Tool versions and installation a
 
 ### 3.4 What CI checks on every PR
 
-1. Software: build, unit tests, coverage gate (added by #24), clang-format, clang-tidy, include check (added by #5), and the GoogleTest download fallback.
+1. Software: build, unit tests, coverage gate, clang-format, clang-tidy, include check (added by #5), and the GoogleTest download fallback.
 2. Hardware: Verilator and Verible lint, and every testbench in Verilator except those tagged `questa-only`.
 3. QuestaSim logs: for every module affected by the PR, `hw/sim/logs/<module>.log` exists, its last line is `PASS`, and it is newer than the last change to the module or anything it uses. A module is affected when any of its **dependencies** changed: its testbench, the module itself, every package (`*_pkg.sv`) and every module it instantiates, followed down the hierarchy (`tools/sim_deps.py <module>` lists them). "Newer" is checked exactly: the log header holds one sha256 hash per dependency, as the files were when QuestaSim ran, and each must match the file in the PR. So editing `arcade_regs_pkg.sv` makes every log stale, and editing a submodule makes the logs of every module above it stale. A module without a testbench fails this check, including a submodule.
 4. Milestone reports: a PR that closes a hardware milestone (M2, M4) carries the label **`hw-milestone`**. CI then requires `hw/reports/` to contain the `*.fit.summary` and `*.sta.summary` from a full Quartus build, with `Fitter Status : Successful` and no negative slack. Any reports present in other PRs are checked the same way.

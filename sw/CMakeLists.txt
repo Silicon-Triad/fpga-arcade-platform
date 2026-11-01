@@ -45,7 +45,8 @@ endif()
 
 if(ARCADE_COVERAGE)
     find_program(GCOVR gcovr REQUIRED)
-    # Report only; the 80 % gate on sw/engine and sw/games is issue #24 (QA-04).
+    set(ARCADE_COVERAGE_MIN_LINE 80)  # QA-04: minimum line coverage (%) of game logic
+    # HTML report for all of sw/, then the gate on sw/engine and sw/games (QA-04).
     add_custom_target(coverage
         COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/coverage
         COMMAND ${GCOVR} --root ${PROJECT_SOURCE_DIR} --filter ${PROJECT_SOURCE_DIR}/sw/
@@ -53,5 +54,7 @@ if(ARCADE_COVERAGE)
                 --html-details ${PROJECT_BINARY_DIR}/coverage/index.html
                 ${PROJECT_BINARY_DIR}
         COMMAND ${CMAKE_COMMAND} -E echo "Coverage report: ${PROJECT_BINARY_DIR}/coverage/index.html"
+        COMMAND ${PROJECT_SOURCE_DIR}/tools/coverage_gate.sh ${GCOVR} ${PROJECT_SOURCE_DIR}
+                ${PROJECT_BINARY_DIR} ${ARCADE_COVERAGE_MIN_LINE}
         COMMENT "Collecting line coverage")
 endif()
