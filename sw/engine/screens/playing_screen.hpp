@@ -32,6 +32,10 @@ class PlayingScreen final : public Screen {
     void renderPicture(EngineApi& api) noexcept;
     /// The running game, or nullptr.
     const Game* game() const noexcept { return game_; }
+    /// TBL-GameRegistry game_id of the running game.
+    std::uint8_t gameId() const noexcept { return gameId_; }
+    /// TBL-GameRegistry name of the running game.
+    std::string_view name() const noexcept { return name_; }
     /// The game's current top score (SR-UI-04).
     std::uint32_t highScore() const noexcept;
     /// True if the running game's score enters its top 10 (SR-UI-08).

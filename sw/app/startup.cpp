@@ -72,9 +72,17 @@ int runArcade(const Options& options, const BackendFactory& factory, std::FILE* 
     PosixFileSystem fs;
     scores.load(fs);
 
+    // SR-UI-10, SR-FW-09. A failed save stays pending for the shutdown (SR-FW-13); noexcept, so
+    // out of memory while saving ends the program as any other failed allocation does.
+    const auto saveScores = [&scores, &fs, log]() noexcept {
+        if (scores.save(fs) != SaveStatus::Ok) {
+            (void)std::fprintf(log, "warning: high scores not saved\n");  // play goes on
+        }
+    };
     App app(
         api, kGameRegistry.data(), kGameRegistry.size(),
-        [&scores](std::uint8_t gameId) { return bestScoreOf(scores, gameId); }, &scores);
+        [&scores](std::uint8_t gameId) { return bestScoreOf(scores, gameId); }, &scores,
+        saveScores);
     MonotonicClock clock;
     GameLoop loop(api, clock, GameLoopConfig{options.profile});
 

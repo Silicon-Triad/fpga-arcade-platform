@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string_view>
+#include <utility>
 
 #include "engine/ui_layout.hpp"
 
@@ -37,11 +38,11 @@ std::optional<InputContext> contextFor(AppState state, InputContext playContext)
 
 // Stand-in so that no unfinished screen traps the player (SR-UI-07, SR-UI-12): Back returns to
 // the menu. Each issue removes its state when it implements the real keys. Not listed: Boot, Menu,
-// HardwareNotReady (SF-02 exits) and ShuttingDown (section 3.1.1 screen 10b: no keys work).
+// HardwareNotReady (SF-02 exits), Initials (TBL-KeyBinding gives it no Back) and ShuttingDown
+// (section 3.1.1 screen 10b: no keys work).
 bool backReturnsToMenu(AppState state) noexcept {
     switch (state) {
-        case AppState::HighScores:  // #12
-        case AppState::Initials:    // #12
+        case AppState::HighScores:  // SR-UI-12
             return true;
         default:
             return false;
@@ -75,8 +76,8 @@ bool pressed(const InputFrame& input, Action action) noexcept {
 }  // namespace
 
 App::App(EngineApi& api, const GameRegistryRow* rows, std::size_t rowCount, BestScoreFn bestScore,
-         const HighScoreStore* scores)
-    : api_(api) {
+         HighScoreStore* scores, std::function<void()> saveScores)
+    : api_(api), scores_(scores), saveScores_(std::move(saveScores)) {
     playing_.setScores(scores);
     std::vector<MenuGame> menuGames;
     games_.reserve(rowCount);
@@ -87,6 +88,7 @@ App::App(EngineApi& api, const GameRegistryRow* rows, std::size_t rowCount, Best
     }
     menu_ =
         std::make_unique<MenuScreen>(std::move(menuGames), std::move(bestScore), api_, soundOn_);
+    highScores_.setSource(&menu_->games(), scores);
 }
 
 void App::setState(AppState state) noexcept {
@@ -176,6 +178,22 @@ bool App::handleGameplayKeys(const InputFrame& input) noexcept {
     return true;
 }
 
+// SR-UI-10: the only place an entry is added, once per confirmed Initials screen. A failed save
+// keeps the entry in memory and pending, so shutdown tries again (SR-FW-13).
+void App::finishInitials() noexcept {
+    const std::uint8_t gameId = playing_.gameId();
+    std::uint8_t rank = HighScoresScreen::kNoHighlight;
+    if (scores_ != nullptr && playing_.game() != nullptr) {
+        rank = scores_->insert(gameId, initials_.letters(), playing_.game()->score())
+                   .value_or(HighScoresScreen::kNoHighlight);
+    }
+    if (rank != HighScoresScreen::kNoHighlight && saveScores_) {
+        saveScores_();  // SR-FW-09
+    }
+    highScores_.open(gameId, rank);
+    setState(AppState::HighScores);
+}
+
 void App::handleMute(const InputFrame& input) noexcept {
     // Section 3.1.1: no keys work on screens without a context. On 10b a toggle would also undo
     // the shutdown mute (SR-FW-13). Initials needs no check: M arrives as Char (SR-INP-09).
@@ -203,14 +221,20 @@ void App::update(const InputFrame& input) noexcept {
     if (handleGameplayKeys(input)) {
         return;
     }
-    if (state_ == AppState::Initials && pressed(input, Action::Select)) {
-        setState(AppState::Menu);  // stand-in until #12: Initials has no Back key, so Enter leaves
+    screenFor(state_)->update(input);
+    if (state_ == AppState::Initials && initials_.takeConfirmed()) {
+        finishInitials();  // SR-UI-10
         return;
     }
-    screenFor(state_)->update(input);
     if (state_ == AppState::Playing && playing_.game() != nullptr && playing_.game()->isOver()) {
         // SR-UI-08
-        setState(playing_.scoreQualifies() ? AppState::Initials : AppState::GameOver);
+        if (playing_.scoreQualifies()) {
+            initials_.begin(playing_.name(), playing_.game()->score(),
+                            scores_->rankFor(playing_.gameId(), playing_.game()->score()));
+            setState(AppState::Initials);
+        } else {
+            setState(AppState::GameOver);
+        }
         return;
     }
     if (state_ == AppState::ShutdownConfirm) {
@@ -236,6 +260,7 @@ void App::update(const InputFrame& input) noexcept {
         api_.playSound(EffectId::MenuSelect);  // SR-GAM-16
         setState(AppState::Playing);
     } else if (request == MenuScreen::Request::Scores) {
+        highScores_.open();  // SR-UI-12
         setState(AppState::HighScores);
     } else if (request == MenuScreen::Request::Shutdown) {
         setState(AppState::ShutdownConfirm);  // SR-UI-14

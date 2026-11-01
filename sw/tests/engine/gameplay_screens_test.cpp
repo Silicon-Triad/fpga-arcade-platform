@@ -136,13 +136,6 @@ TEST_F(GameplayTest, SR_UI_08_QualifyingScoreGoesToInitials) {
     EXPECT_EQ(app.state(), AppState::Initials);
 }
 
-TEST_F(GameplayTest, SR_UI_08_SelectLeavesInitialsPlaceholder) {
-    game->over = true;
-    app.update(InputFrame{});
-    app.update(press(Action::Select));
-    EXPECT_EQ(app.state(), AppState::Menu);
-}
-
 TEST_F(GameplayTest, SR_UI_08_NonQualifyingScoreGoesToGameOver) {
     fillTable(500);
     game->over = true;
