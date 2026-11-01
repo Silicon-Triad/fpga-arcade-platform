@@ -1,7 +1,7 @@
 # `sw/app/`
 
 **Owner:** Muhammad  
-**Issues:** #16, #15
+**Issues:** #16, #15, #13
 
 `main.cpp`: chooses the backend and starts the program. `startup.*`: SR-FW-01 order and the SF-02 failure path, testable with a fake backend. `options.*`: `--backend=sdl|fpga`, `--profile`. `binding_lookup.hpp`: TBL-KeyBinding for the SDL2 backend. `main.cpp` also installs the SIGINT and SIGTERM handlers (SR-FW-14).
 

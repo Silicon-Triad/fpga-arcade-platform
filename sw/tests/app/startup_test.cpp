@@ -8,6 +8,7 @@
 #include <array>
 #include <chrono>
 #include <cstdio>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -264,6 +265,47 @@ TEST(BootScreen, Screen1_NoKeyboardMessageOnRow60) {
     Tilemap golden = goldenBase();
     expectText(golden, 43, 60, "NO KEYBOARD FOUND - PLUG IN A USB KEYBOARD", TextScale::X1);
     EXPECT_EQ(api.map, golden);
+}
+
+// Runs the splash; `present` is the backend's keyboard state. Returns the last tilemap drawn.
+Tilemap splashWithKeyboard(std::function<bool()> present) {
+    std::vector<std::string> calls;
+    Log log;
+    RecordingApi* api = nullptr;
+    Tilemap last{};
+    const auto factory = [&](const Options& options) {
+        BackendStart start = fakeFactory(calls, 1)(options);
+        api = static_cast<RecordingApi*>(start.api.get());
+        start.keyboardPresent = present;
+        start.stopRequested = [&] {
+            const bool stop = std::count(calls.begin(), calls.end(), "present") >= 1;
+            if (stop) {
+                last = api->map;  // before release destroys the backend
+            }
+            return stop;
+        };
+        return start;
+    };
+    EXPECT_EQ(runArcade(Options{}, factory, log.file()), 0);
+    return last;
+}
+
+TEST(Startup, SR_INP_16_NoKeyboardAtStartUpShowsRow60) {
+    Tilemap golden = goldenBase();
+    expectText(golden, 43, 60, "NO KEYBOARD FOUND - PLUG IN A USB KEYBOARD", TextScale::X1);
+    Tilemap got = splashWithKeyboard([] { return false; });
+    got[50] = golden[50];  // the bar has its own tests
+    EXPECT_EQ(got, golden);
+}
+
+TEST(Startup, SR_INP_16_KeyboardPresentLeavesRow60Empty) {
+    const Tilemap got = splashWithKeyboard([] { return true; });
+    EXPECT_EQ(got[60], goldenBase()[60]);
+}
+
+TEST(Startup, SR_INP_16_NoCheckMeansAKeyboardIsThere) {  // the PC: SDL always has one
+    const Tilemap got = splashWithKeyboard({});
+    EXPECT_EQ(got[60], goldenBase()[60]);
 }
 
 }  // namespace

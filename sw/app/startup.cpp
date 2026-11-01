@@ -78,8 +78,9 @@ int runArcade(const Options& options, const BackendFactory& factory, std::FILE* 
     MonotonicClock clock;
     GameLoop loop(api, clock, GameLoopConfig{options.profile});
 
-    // Section 3.1.1 screen 1, then the menu (SR-FW-01). A keyboard check belongs to the FPGA
-    // backend (#37): SDL always has one.
+    // Section 3.1.1 screen 1, then the menu (SR-FW-01). The Input Manager sends no event for a
+    // keyboard missing at start-up (SR-INP-16), so the backend is asked once.
+    app.setKeyboardMissing(backend.keyboardPresent && !backend.keyboardPresent());
     loop.setScreen(&app);
     for (int tick = 1; tick <= kSplashTicks && !stop(); ++tick) {
         app.boot().setProgress(tick, kSplashTicks);

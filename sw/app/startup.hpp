@@ -27,6 +27,9 @@ constexpr std::string_view kStepLoadTiles = "load tiles and palette";
 struct BackendStart {
     std::unique_ptr<EngineApi> api;       ///< nullptr if the start failed.
     std::function<bool()> stopRequested;  ///< True when the program should end; may be empty.
+    /// False if no keyboard was found at start-up (SR-INP-16); empty means one is always there,
+    /// as on the PC. A later change arrives as KeyboardLost or KeyboardFound (SR-UI-11).
+    std::function<bool()> keyboardPresent;
     std::string_view failedStep = kStepStartBackend;  ///< Used when `api` is nullptr.
     /// Ticks to keep the last frame after a confirmed shutdown, before release. For the PC only,
     /// where release closes the window; on the board the frame stays until power-off (SR-HAL-07).
