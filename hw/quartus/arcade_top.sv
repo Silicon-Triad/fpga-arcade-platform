@@ -59,7 +59,7 @@ module arcade_top #(
 
   pixel_pll u_pll (
       .refclk  (CLOCK_50),
-      .rst     (1'b0),
+      .reset   (1'b0),
       .outclk_0(clk_xga),      // 65.000 MHz (CON-03, SR-VGA-01)
       .outclk_1(clk_bringup),  // 25.0-25.2 MHz (SR-VGA-10)
       .locked  (pll_locked)

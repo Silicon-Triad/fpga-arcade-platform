@@ -37,7 +37,7 @@ These steps need Quartus, so they are done by hand. Commit what each step says, 
 | outclk0 | **65.000000 MHz** (Quartus should report exactly 65 MHz: 50 × 13 ÷ 10) | CON-03, SR-VGA-01 |
 | outclk1 | **25.175000 MHz** requested; the actual value Quartus shows must be **25.0–25.2 MHz** | SR-VGA-10 |
 | Enable locked output | yes | B4 |
-| Reset input `rst` | yes (tied low in `arcade_top`) | |
+| Reset input `reset` | always present (tied low in `arcade_top`) | |
 
 Write the actual frequencies Quartus reports for both outputs into the PR. Commit the IP
 source file(s) the IP Catalog writes next to `hw/ip/` (check `git status`; the `.qip`/`.ip`,
