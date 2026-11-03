@@ -45,12 +45,15 @@ module tilemap_crop #(
   // verilog_lint: waive-stop parameter-name-style
 
   // Only the two values of App. A VIDEO_MODE are legal.
-  // generate/endgenerate: Quartus Prime Lite needs the keywords (#33).
+  // Elaboration check only: Quartus Prime Lite does not support $error here, so Quartus
+  // synthesis (which defines ALTERA_RESERVED_QIS) skips it; Verilator and QuestaSim run it.
+`ifndef ALTERA_RESERVED_QIS
   generate
     if (VIDEO_MODE != "XGA_1024x768" && VIDEO_MODE != "VGA_640x480") begin : g_bad_mode
       $error("tilemap_crop: VIDEO_MODE must be \"XGA_1024x768\" or \"VGA_640x480\"");
     end
   endgenerate
+`endif
 
   // Tile column and row: pixel position / TILE_SIZE (CON-05). An x or y past the 128 x 96 grid
   // (only possible with a bad VGA timing) has non-zero high bits and is treated as cropped.
@@ -72,7 +75,9 @@ module tilemap_crop #(
   assign cell_addr = {row, col};
 
   // Elaboration check: {row, col} spans exactly one tilemap bank.
-  // generate/endgenerate: Quartus Prime Lite needs the keywords (#33).
+  // Elaboration check only: Quartus Prime Lite does not support $error here, so Quartus
+  // synthesis (which defines ALTERA_RESERVED_QIS) skips it; Verilator and QuestaSim run it.
+`ifndef ALTERA_RESERVED_QIS
   generate
     if (arcade_regs_pkg::GRID_COLS != (1 << COL_W) ||
       arcade_regs_pkg::GRID_COLS * arcade_regs_pkg::GRID_ROWS
@@ -82,6 +87,7 @@ module tilemap_crop #(
       $error("tilemap_crop: tilemap geometry does not match arcade_regs_pkg");
     end
   endgenerate
+`endif
 
   // Low bits (pixel inside the tile) are used by the pipeline (#30), not here.
   wire _unused = &{1'b0, vga_x[SUB_W-1:0], vga_y[SUB_W-1:0]};

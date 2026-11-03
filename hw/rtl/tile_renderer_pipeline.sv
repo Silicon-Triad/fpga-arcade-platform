@@ -163,7 +163,9 @@ module tile_renderer_pipeline (
 
   // Elaboration checks: one 32-bit word is one tile row, and the word address is exactly
   // {tile_index, row}, so the port widths above agree with the derived sizes.
-  // generate/endgenerate: Quartus Prime Lite needs the keywords (#33).
+  // Elaboration check only: Quartus Prime Lite does not support $error here, so Quartus
+  // synthesis (which defines ALTERA_RESERVED_QIS) skips it; Verilator and QuestaSim run it.
+`ifndef ALTERA_RESERVED_QIS
   generate
     if (BYTES_PER_ROW * 8 != 32 || PATTERN_ADDR_W != $bits(
             pat_wr_addr
@@ -175,6 +177,7 @@ module tile_renderer_pipeline (
       $error("tile_renderer_pipeline: pattern RAM geometry does not match arcade_regs_pkg");
     end
   endgenerate
+`endif
 
   // Bits not used by design: tile-grid part of x/y (the tilemap read uses them upstream)
   // and the unused top byte of 0x00RRGGBB.
