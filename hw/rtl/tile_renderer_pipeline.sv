@@ -163,15 +163,18 @@ module tile_renderer_pipeline (
 
   // Elaboration checks: one 32-bit word is one tile row, and the word address is exactly
   // {tile_index, row}, so the port widths above agree with the derived sizes.
-  if (BYTES_PER_ROW * 8 != 32 || PATTERN_ADDR_W != $bits(
-          pat_wr_addr
-      ) || PATTERN_ADDR_W != $bits(
-          tile_index
-      ) + $clog2(
-          ROWS_PER_TILE
-      )) begin : g_bad_size
-    $error("tile_renderer_pipeline: pattern RAM geometry does not match arcade_regs_pkg");
-  end
+  // generate/endgenerate: Quartus Prime Lite needs the keywords (#33).
+  generate
+    if (BYTES_PER_ROW * 8 != 32 || PATTERN_ADDR_W != $bits(
+            pat_wr_addr
+        ) || PATTERN_ADDR_W != $bits(
+            tile_index
+        ) + $clog2(
+            ROWS_PER_TILE
+        )) begin : g_bad_size
+      $error("tile_renderer_pipeline: pattern RAM geometry does not match arcade_regs_pkg");
+    end
+  endgenerate
 
   // Bits not used by design: tile-grid part of x/y (the tilemap read uses them upstream)
   // and the unused top byte of 0x00RRGGBB.

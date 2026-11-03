@@ -45,9 +45,12 @@ module tilemap_crop #(
   // verilog_lint: waive-stop parameter-name-style
 
   // Only the two values of App. A VIDEO_MODE are legal.
-  if (VIDEO_MODE != "XGA_1024x768" && VIDEO_MODE != "VGA_640x480") begin : g_bad_mode
-    $error("tilemap_crop: VIDEO_MODE must be \"XGA_1024x768\" or \"VGA_640x480\"");
-  end
+  // generate/endgenerate: Quartus Prime Lite needs the keywords (#33).
+  generate
+    if (VIDEO_MODE != "XGA_1024x768" && VIDEO_MODE != "VGA_640x480") begin : g_bad_mode
+      $error("tilemap_crop: VIDEO_MODE must be \"XGA_1024x768\" or \"VGA_640x480\"");
+    end
+  endgenerate
 
   // Tile column and row: pixel position / TILE_SIZE (CON-05). An x or y past the 128 x 96 grid
   // (only possible with a bad VGA timing) has non-zero high bits and is treated as cropped.
@@ -69,13 +72,16 @@ module tilemap_crop #(
   assign cell_addr = {row, col};
 
   // Elaboration check: {row, col} spans exactly one tilemap bank.
-  if (arcade_regs_pkg::GRID_COLS != (1 << COL_W) ||
+  // generate/endgenerate: Quartus Prime Lite needs the keywords (#33).
+  generate
+    if (arcade_regs_pkg::GRID_COLS != (1 << COL_W) ||
       arcade_regs_pkg::GRID_COLS * arcade_regs_pkg::GRID_ROWS
       != arcade_regs_pkg::TILEMAP_BANK_SIZE || ROW_W + COL_W != $bits(
-          cell_addr
-      )) begin : g_bad_size
-    $error("tilemap_crop: tilemap geometry does not match arcade_regs_pkg");
-  end
+            cell_addr
+        )) begin : g_bad_size
+      $error("tilemap_crop: tilemap geometry does not match arcade_regs_pkg");
+    end
+  endgenerate
 
   // Low bits (pixel inside the tile) are used by the pipeline (#30), not here.
   wire _unused = &{1'b0, vga_x[SUB_W-1:0], vga_y[SUB_W-1:0]};

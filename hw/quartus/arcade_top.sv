@@ -119,11 +119,14 @@ module arcade_top #(
   );
 
   // Synthesis-time choice only (SR-VGA-11); the unused output is left unconnected.
-  if (VIDEO_MODE == "VGA_640x480") begin : g_clk_bringup
-    assign pix_clk = clk_bringup;
-  end else begin : g_clk_xga
-    assign pix_clk = clk_xga;
-  end
+  // generate/endgenerate: Quartus Prime Lite needs the keywords (#33).
+  generate
+    if (VIDEO_MODE == "VGA_640x480") begin : g_clk_bringup
+      assign pix_clk = clk_bringup;
+    end else begin : g_clk_xga
+      assign pix_clk = clk_xga;
+    end
+  endgenerate
 
   assign VGA_CLK = pix_clk;  // DAC clock = pixel clock (§3.1.2.1)
 
