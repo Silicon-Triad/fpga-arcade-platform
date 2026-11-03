@@ -1,4 +1,4 @@
-// VGA timing generator, XGA 1024x768 @ 60 Hz (#25). SR-VGA-02, SR-VGA-03, CON-02.
+// VGA timing generator, XGA 1024x768 @ 60 Hz (#25, #26). SR-VGA-02, SR-VGA-03, SR-VGA-08, CON-02.
 module vga_timing (
     input logic clk,  // 65.000 MHz pixel clock (SR-VGA-01)
     input logic rst,  // synchronous, active high
@@ -7,7 +7,8 @@ module vga_timing (
     output logic [9:0] pixel_y,       // valid while active
     output logic       active,        // inside 1024 x 768
     output logic       h_sync_pulse,  // active high (SR-VGA-04)
-    output logic       v_sync_pulse   // active high (SR-VGA-04)
+    output logic       v_sync_pulse,  // active high (SR-VGA-04)
+    output logic       vblank_start   // 1 clock after the last active pixel of line 767 (SR-VGA-08)
 );
 
   // verilog_lint: waive-start parameter-name-style
@@ -46,6 +47,14 @@ module vga_timing (
   assign active = (h_count_q < H_ACTIVE) && (v_count_q < V_ACTIVE);
   assign h_sync_pulse = (h_count_q >= H_SYNC_START) && (h_count_q < H_SYNC_END);
   assign v_sync_pulse = (v_count_q >= V_SYNC_START) && (v_count_q < V_SYNC_END);
+
+  // SR-VGA-08: registered, so it is high exactly on the clock with h = H_ACTIVE, v = V_ACTIVE - 1.
+  logic vblank_start_q;
+  always_ff @(posedge clk) begin
+    if (rst) vblank_start_q <= 1'b0;
+    else vblank_start_q <= (h_count_q == H_ACTIVE - 11'd1) && (v_count_q == V_ACTIVE - 10'd1);
+  end
+  assign vblank_start = vblank_start_q;
 
   assign pixel_x = h_count_q[9:0];
   assign pixel_y = v_count_q;
