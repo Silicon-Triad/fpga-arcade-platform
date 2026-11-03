@@ -162,7 +162,7 @@ module tb_vga_controller;
           end
           if (last_blank_fall > last_hs_fall && last_hs_fall >= 0) begin
             expect_eq_m("front porch (BLANK_N fall to HS fall)", clk_count - last_blank_fall,
-                      H_FRONT_PORCH);
+                        H_FRONT_PORCH);
           end
           last_hs_fall = clk_count;
         end
@@ -202,7 +202,7 @@ module tb_vga_controller;
         if (prev_vs && !vga_vs) begin
           if (last_vs_fall >= 0) begin
             expect_eq_m("clocks per frame (VS fall to VS fall)", clk_count - last_vs_fall,
-                      V_TOTAL * H_TOTAL);
+                        V_TOTAL * H_TOTAL);
             expect_eq_m("active lines per frame", lines_since_vs_fall, V_ACTIVE);
             if (active_row >= 0) expect_eq_m("last active row index", active_row, V_ACTIVE - 1);
             expect_eq_m("vblank_start pulses per frame", vblanks_since_vs, 1);
@@ -223,7 +223,8 @@ module tb_vga_controller;
           end
           if (last_blank_fall >= 0) begin
             expect_eq_m("vertical front porch (last BLANK_N fall to VS fall)",
-                      clk_count - last_blank_fall, (H_TOTAL - H_ACTIVE) + V_FRONT_PORCH * H_TOTAL);
+                        clk_count - last_blank_fall,
+                        (H_TOTAL - H_ACTIVE) + V_FRONT_PORCH * H_TOTAL);
           end
           lines_since_vs_fall = 0;
           last_vs_fall = clk_count;
@@ -247,16 +248,16 @@ module tb_vga_controller;
             col = clk_count - last_blank_rise;
             if ({vga_r, vga_g, vga_b} !== colour_of(col, active_row)) begin
               fail_m($sformatf(
-                   "colour at (%0d,%0d): got %06h, expected %06h",
-                   col,
-                   active_row,
-                   {
-                     vga_r, vga_g, vga_b
-                   },
-                   colour_of(
-                       col, active_row
-                   )
-                   ));
+                     "colour at (%0d,%0d): got %06h, expected %06h",
+                     col,
+                     active_row,
+                     {
+                       vga_r, vga_g, vga_b
+                     },
+                     colour_of(
+                         col, active_row
+                     )
+                     ));
             end
           end
         end else if ({vga_r, vga_g, vga_b} !== 24'h00_0000) begin
@@ -283,8 +284,12 @@ module tb_vga_controller;
     end
     if (g_mode[0].frames_checked < FRAMES_TO_CHECK || g_mode[1].frames_checked < FRAMES_TO_CHECK)
     begin
-      fail($sformatf("only %0d (XGA) and %0d (bring-up) whole frames seen, expected %0d each",
-                     g_mode[0].frames_checked, g_mode[1].frames_checked, FRAMES_TO_CHECK));
+      fail($sformatf(
+           "only %0d (XGA) and %0d (bring-up) whole frames seen, expected %0d each",
+           g_mode[0].frames_checked,
+           g_mode[1].frames_checked,
+           FRAMES_TO_CHECK
+           ));
     end
     if (g_mode[0].frames_dark < 1 || g_mode[0].frames_lit < 1 ||
         g_mode[1].frames_dark < 1 || g_mode[1].frames_lit < 1) begin
