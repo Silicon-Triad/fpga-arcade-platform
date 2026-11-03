@@ -1,8 +1,16 @@
-// VGA Controller, XGA 1024x768 @ 60 Hz (#25, #26). SR-VGA-02 to SR-VGA-09, CON-02.
+// VGA Controller (#25, #26, #27). SR-VGA-02 to SR-VGA-11, CON-02.
+// VIDEO_MODE selects XGA 1024x768 @ 60 Hz (default) or the 640x480 @ 60 Hz bring-up mode
+// (SR-VGA-10, SR-VGA-11); vga_timing holds the counts for both.
 // Timing goes to the Tile Renderer in cycle 0; the renderer delays sync and blank with its colour
 // (SR-REN-06), and this module registers them onto the pins.
-module vga_controller (
-    input logic clk,  // 65.000 MHz pixel clock (SR-VGA-01)
+module vga_controller #(
+    // SR-VGA-11, App. A VIDEO_MODE: "XGA_1024x768" (default) or "VGA_640x480". The top level
+    // passes the same value to tilemap_crop (SR-REN-08) and builds the matching PLL.
+    // verilog_lint: waive parameter-name-style (App. A name, R-4.2.3)
+    parameter string VIDEO_MODE = "XGA_1024x768"
+) (
+    // Pixel clock: 65.000 MHz in XGA (SR-VGA-01), 25.0-25.2 MHz in bring-up (SR-VGA-10)
+    input logic clk,
     input logic rst,  // synchronous, active high
 
     // Control Register display-enable bit (§3.1.4), from bridge_regs on this same clock (A2)
@@ -33,7 +41,9 @@ module vga_controller (
     // verilog_lint: waive-stop port-name-style
 );
 
-  vga_timing u_timing (
+  vga_timing #(
+      .VIDEO_MODE(VIDEO_MODE)
+  ) u_timing (
       .clk         (clk),
       .rst         (rst),
       .pixel_x     (pixel_x),
