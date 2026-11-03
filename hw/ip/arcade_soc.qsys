@@ -9,6 +9,22 @@
    categories="System" />
  <parameter name="bonusData"><![CDATA[bonusData 
 {
+   element bridge_regs_0
+   {
+      datum _sortIndex
+      {
+         value = "2";
+         type = "int";
+      }
+   }
+   element bridge_regs_0.s0
+   {
+      datum baseAddress
+      {
+         value = "0";
+         type = "String";
+      }
+   }
    element clk_0
    {
       datum _sortIndex
@@ -51,6 +67,38 @@
          type = "String";
       }
    }
+   element lw_ccb
+   {
+      datum _sortIndex
+      {
+         value = "5";
+         type = "int";
+      }
+   }
+   element lw_ccb.s0
+   {
+      datum baseAddress
+      {
+         value = "0";
+         type = "String";
+      }
+   }
+   element pix_clk
+   {
+      datum _sortIndex
+      {
+         value = "3";
+         type = "int";
+      }
+   }
+   element pix_rst
+   {
+      datum _sortIndex
+      {
+         value = "4";
+         type = "int";
+      }
+   }
 }
 ]]></parameter>
  <parameter name="clockCrossingAdapter" value="HANDSHAKE" />
@@ -72,6 +120,7 @@
  <parameter name="timeStamp" value="0" />
  <parameter name="useTestBenchNamingPattern" value="false" />
  <instanceScript></instanceScript>
+ <interface name="audio" internal="bridge_regs_0.audio" type="conduit" dir="end" />
  <interface name="clk" internal="clk_0.clk_in" type="clock" dir="end" />
  <interface
    name="hps_0_f2h_cold_reset_req"
@@ -104,7 +153,11 @@
    internal="hps_0.h2f_warm_reset_handshake" />
  <interface name="hps_0_hps_io" internal="hps_0.hps_io" type="conduit" dir="end" />
  <interface name="memory" internal="hps_0.memory" type="conduit" dir="end" />
+ <interface name="pix_clk" internal="pix_clk.in_clk" type="clock" dir="end" />
+ <interface name="pix_rst" internal="pix_rst.in_reset" type="reset" dir="end" />
  <interface name="reset" internal="clk_0.clk_in_reset" type="reset" dir="end" />
+ <interface name="video" internal="bridge_regs_0.video" type="conduit" dir="end" />
+ <module name="bridge_regs_0" kind="bridge_regs" version="1.0" enabled="1" />
  <module name="clk_0" kind="clock_source" version="25.1" enabled="1">
   <parameter name="clockFrequency" value="50000000" />
   <parameter name="clockFrequencyKnown" value="true" />
@@ -641,6 +694,49 @@
   <parameter name="usb_mp_clk_div" value="0" />
   <parameter name="use_default_mpu_clk" value="false" />
  </module>
+ <module
+   name="lw_ccb"
+   kind="altera_avalon_mm_clock_crossing_bridge"
+   version="25.1"
+   enabled="1">
+  <parameter name="ADDRESS_UNITS" value="SYMBOLS" />
+  <parameter name="ADDRESS_WIDTH" value="16" />
+  <parameter name="COMMAND_FIFO_DEPTH" value="4" />
+  <parameter name="DATA_WIDTH" value="32" />
+  <parameter name="MASTER_SYNC_DEPTH" value="2" />
+  <parameter name="MAX_BURST_SIZE" value="1" />
+  <parameter name="RESPONSE_FIFO_DEPTH" value="4" />
+  <parameter name="SLAVE_SYNC_DEPTH" value="2" />
+  <parameter name="SYMBOL_WIDTH" value="8" />
+  <parameter name="SYSINFO_ADDR_WIDTH" value="16" />
+  <parameter name="USE_AUTO_ADDRESS_WIDTH" value="0" />
+ </module>
+ <module name="pix_clk" kind="altera_clock_bridge" version="25.1" enabled="1">
+  <parameter name="DERIVED_CLOCK_RATE" value="0" />
+  <parameter name="EXPLICIT_CLOCK_RATE" value="0" />
+  <parameter name="NUM_CLOCK_OUTPUTS" value="1" />
+ </module>
+ <module name="pix_rst" kind="altera_reset_bridge" version="25.1" enabled="1">
+  <parameter name="ACTIVE_LOW_RESET" value="0" />
+  <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
+  <parameter name="NUM_RESET_OUTPUTS" value="1" />
+  <parameter name="SYNCHRONOUS_EDGES" value="deassert" />
+  <parameter name="USE_RESET_REQUEST" value="0" />
+ </module>
+ <connection
+   kind="avalon"
+   version="25.1"
+   start="hps_0.h2f_lw_axi_master"
+   end="lw_ccb.s0">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0000" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection kind="avalon" version="25.1" start="lw_ccb.m0" end="bridge_regs_0.s0">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0000" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
  <connection
    kind="clock"
    version="25.1"
@@ -656,6 +752,33 @@
    version="25.1"
    start="clk_0.clk"
    end="hps_0.h2f_lw_axi_clock" />
+ <connection kind="clock" version="25.1" start="clk_0.clk" end="lw_ccb.s0_clk" />
+ <connection kind="clock" version="25.1" start="pix_clk.out_clk" end="pix_rst.clk" />
+ <connection
+   kind="clock"
+   version="25.1"
+   start="pix_clk.out_clk"
+   end="bridge_regs_0.clock" />
+ <connection
+   kind="clock"
+   version="25.1"
+   start="pix_clk.out_clk"
+   end="lw_ccb.m0_clk" />
+ <connection
+   kind="reset"
+   version="25.1"
+   start="clk_0.clk_reset"
+   end="lw_ccb.s0_reset" />
+ <connection
+   kind="reset"
+   version="25.1"
+   start="pix_rst.out_reset"
+   end="lw_ccb.m0_reset" />
+ <connection
+   kind="reset"
+   version="25.1"
+   start="pix_rst.out_reset"
+   end="bridge_regs_0.reset" />
  <interconnectRequirement for="$system" name="qsys_mm.clockCrossingAdapter" value="HANDSHAKE" />
  <interconnectRequirement for="$system" name="qsys_mm.maxAdditionalLatency" value="1" />
 </system>
