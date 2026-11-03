@@ -25,4 +25,14 @@ Decided in #25 (PR #91 review):
 - **Display enable (SR-VGA-09, #26):** input `display_enable` is the Control Register bit (§3.1.4, `BIT_CONTROL_DISPLAY_ENABLE`) from `bridge_regs` (#96). `bridge_regs` runs on the same pixel clock (its assumption A2), so this is not a clock-domain crossing and there is no synchronizer (R-4.2.5); one register breaks up the path. While it is 0, sync and `VGA_BLANK_N` run normally and every active pixel is black. Reset value 0, as the register map. A change takes effect on the next clock, so the first lit frame can start partway through a line (SR-VGA-09 allows this).
 - **Not yet:** the 640×480 mode and `VIDEO_MODE` (#27).
 
+## I2S transmitter (Huzaifa, #41)
+
+`i2s_tx.sv` sends samples to the WM8731 in slave mode (SR-AUD-02, SR-AUD-03, CON-12, §3.1.2.4):
+
+- **Clock:** `clk` is the 12.288 MHz codec master clock (SR-AUD-01), the same clock that drives `AUD_XCK`. The PLL that makes it from the 50 MHz board clock and the pin forwarding belong to the top level; they are not in this module.
+- **Dividers:** `AUD_DACLRCK` = `clk` / 256 = 48 kHz (256 = `AUD_MCLK_HZ` / `AUD_SAMPLE_RATE_HZ`); `AUD_BCLK` = `clk` / 8 = 1.536 MHz, 32 bit clocks per frame (2 × `AUD_SAMPLE_BITS`).
+- **Format:** I²S. LRCK low = left, high = right. Each 16-bit word goes MSB first, one bit clock after the LRCK edge. DACDAT and LRCK change on the falling edge of BCLK. Left = right (SR-AUD-03).
+- **Sample interface:** `sample` (signed 16-bit) is latched once per frame, at the start of the left channel. `sample_load` pulses for one clock right after that, so the Tone Generator (#42) can use it as its 48 kHz tick and present the next sample. Both are in the `clk` domain.
+- **Reset:** synchronous, in the `clk` domain. BCLK, LRCK and DACDAT are low after reset, and the first frame is all zeros.
+
 Rules: see [`AGENTS.md`](/AGENTS.md).
