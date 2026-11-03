@@ -135,3 +135,6 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_SYNC_N
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_HS
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_VS
 # HPS pins: copy from the GHRD .qsf (README step 3).
+
+set_global_assignment -name QIP_FILE ../ip/pixel_pll.qip
+set_global_assignment -name SIP_FILE ../ip/pixel_pll.sip
