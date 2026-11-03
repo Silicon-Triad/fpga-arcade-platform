@@ -51,20 +51,16 @@ Open `hw/ip/arcade_soc.qsys`, *Generate HDL* (Verilog, no simulation model), as 
 `hw/ip/arcade_soc/synthesis/arcade_soc.qip` (used by `arcade.qsf`) and
 `hw/ip/arcade_soc/arcade_soc_inst.v`, the full port list.
 
-### 3. HPS ports and pins (from the GHRD, not the SRS)
+### 3. HPS ports and settings (done, from the GHRD)
 
-Compare `arcade_soc_inst.v` with `u_soc` in `arcade_top.sv`; the `video_*`, `audio_*`,
-`clk_clk`, `pix_clk_clk` and `pix_rst_reset` names should match. If Platform Designer named
-any differently, fix `arcade_top.sv`. Then, from the **same DE1-SoC GHRD** you took the HPS
-component from (#28):
+`arcade_top.sv` has the HPS DDR3 and I/O ports and `u_soc` connections copied from the Terasic
+DE1-SoC GHRD rev E (`ghrd_top.v`), and `arcade.qsf` has the GHRD's HPS I/O standards and DDR3
+settings (instance path `u0|` changed to `u_soc|`). HPS pins need no location assignment. To
+re-check against your GHRD copy:
 
-- copy its HPS DDR3 and HPS I/O top-level ports into `arcade_top`'s port list and their
-  connections into `u_soc` (`memory_*`, `hps_0_hps_io_*`), and connect the clock-source reset
-  and HPS reset ports as the GHRD does;
-- copy its HPS pin and I/O-standard assignments into `arcade.qsf`
-  (`python3 -I hw/ip/hps_params.py qsf <ghrd>.qsf` lists them).
-
-Say in the PR that these came from the GHRD, and which GHRD revision.
+```bash
+diff <(grep -hE "HPS_|hps_" <ghrd>/*.qsf | grep -v hps_reset | sed 's/u0|/u_soc|/') <(grep -E "HPS_|u_soc\\|" hw/quartus/arcade.qsf)
+```
 
 ### 4. FPGA pins: `CLOCK_50` and `VGA_*`
 
