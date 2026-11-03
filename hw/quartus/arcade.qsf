@@ -69,10 +69,69 @@ set_global_assignment -name QIP_FILE ../ip/arcade_soc/synthesis/arcade_soc.qip
 # set_global_assignment -name QIP_FILE <pixel_pll .qip from README step 1>
 
 # ---------------------------------------------------------------------------- #
-# Pin assignments: CLOCK_50 (Manual Table 3-5) and VGA_* (Manual Table 3-16).
-# NOT FILLED IN: the SRS cites these tables but does not list the pin numbers, and AGENTS.md
-# R-10.11/R-10.12 forbids an agent from copying them in from elsewhere. Add one
-#   set_location_assignment PIN_<x> -to <signal>
-# per signal, plus IO_STANDARD "3.3-V LVTTL" (§3.1.2.1: all VGA signals are 3.3 V), citing
-# the table. HPS pins come from the GHRD .qsf (README step 3).
+# FPGA pins (#33). Pin numbers: DE1-SoC Manual v1.2.2 rev E, CLOCK_50 from Table 3-5,
+# VGA_* from Table 3-16 (cited by SRS CON-03 and §3.1.2.1). Fill in each FILL_FROM_TABLE
+# by hand from the manual and uncomment the line; Quartus rejects the line until you do.
+# I/O standard: 3.3 V for all VGA signals (§3.1.2.1).
 # ---------------------------------------------------------------------------- #
+# set_location_assignment FILL_FROM_TABLE -to CLOCK_50   ;# Table 3-5
+# set_location_assignment FILL_FROM_TABLE -to VGA_R[0]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_R[1]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_R[2]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_R[3]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_R[4]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_R[5]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_R[6]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_R[7]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_G[0]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_G[1]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_G[2]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_G[3]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_G[4]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_G[5]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_G[6]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_G[7]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_B[0]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_B[1]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_B[2]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_B[3]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_B[4]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_B[5]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_B[6]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_B[7]   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_CLK   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_BLANK_N   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_SYNC_N   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_HS   ;# Table 3-16
+# set_location_assignment FILL_FROM_TABLE -to VGA_VS   ;# Table 3-16
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to CLOCK_50
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_CLK
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_BLANK_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_SYNC_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_HS
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_VS
+# HPS pins: copy from the GHRD .qsf (README step 3).
