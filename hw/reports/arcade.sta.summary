@@ -1,0 +1,280 @@
+------------------------------------------------------------
+Timing Analyzer Summary
+------------------------------------------------------------
+
+Type  : Slow 1100mV 85C Model Setup 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 1.730
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Setup 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 7.461
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Setup 'CLOCK_50'
+Slack : 12.753
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Hold 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 0.143
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Hold 'CLOCK_50'
+Slack : 0.270
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Hold 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 0.280
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Recovery 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 3.375
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Recovery 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 13.024
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Recovery 'CLOCK_50'
+Slack : 16.580
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Removal 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 0.470
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Removal 'CLOCK_50'
+Slack : 0.611
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Removal 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 0.860
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Minimum Pulse Width 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|pll_write_clk_dq_write_clk'
+Slack : 0.608
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Minimum Pulse Width 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 0.623
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Minimum Pulse Width 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~FRACTIONAL_PLL|vcoph[0]'
+Slack : 1.538
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Minimum Pulse Width 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 6.449
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Minimum Pulse Width 'CLOCK_50'
+Slack : 8.885
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Setup 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 1.727
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Setup 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 7.679
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Setup 'CLOCK_50'
+Slack : 12.762
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Hold 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 0.162
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Hold 'CLOCK_50'
+Slack : 0.258
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Hold 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 0.265
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Recovery 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 3.468
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Recovery 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 13.157
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Recovery 'CLOCK_50'
+Slack : 16.738
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Removal 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 0.460
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Removal 'CLOCK_50'
+Slack : 0.537
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Removal 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 0.776
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Minimum Pulse Width 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|pll_write_clk_dq_write_clk'
+Slack : 0.613
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Minimum Pulse Width 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 0.630
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Minimum Pulse Width 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~FRACTIONAL_PLL|vcoph[0]'
+Slack : 1.538
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Minimum Pulse Width 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 6.424
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Minimum Pulse Width 'CLOCK_50'
+Slack : 8.921
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Setup 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 2.110
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Setup 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 10.228
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Setup 'CLOCK_50'
+Slack : 15.376
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Hold 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 0.084
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Hold 'CLOCK_50'
+Slack : 0.160
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Hold 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 0.162
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Recovery 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 3.727
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Recovery 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 13.832
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Recovery 'CLOCK_50'
+Slack : 17.661
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Removal 'CLOCK_50'
+Slack : 0.331
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Removal 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 0.497
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Removal 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 0.527
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Minimum Pulse Width 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|pll_write_clk_dq_write_clk'
+Slack : 0.883
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Minimum Pulse Width 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 0.891
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Minimum Pulse Width 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~FRACTIONAL_PLL|vcoph[0]'
+Slack : 1.538
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Minimum Pulse Width 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 6.571
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Minimum Pulse Width 'CLOCK_50'
+Slack : 8.483
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Setup 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 2.110
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Setup 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 10.788
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Setup 'CLOCK_50'
+Slack : 15.851
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Hold 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 0.077
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Hold 'CLOCK_50'
+Slack : 0.108
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Hold 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 0.149
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Recovery 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 3.825
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Recovery 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 14.024
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Recovery 'CLOCK_50'
+Slack : 17.948
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Removal 'CLOCK_50'
+Slack : 0.267
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Removal 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 0.444
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Removal 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 0.473
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Minimum Pulse Width 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|pll_write_clk_dq_write_clk'
+Slack : 0.887
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Minimum Pulse Width 'arcade_soc:u_soc|arcade_soc_hps_0:hps_0|arcade_soc_hps_0_hps_io:hps_io|arcade_soc_hps_0_hps_io_border:border|hps_sdram:hps_sdram_inst|hps_sdram_pll:pll|afi_clk_write_clk'
+Slack : 0.894
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Minimum Pulse Width 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~FRACTIONAL_PLL|vcoph[0]'
+Slack : 1.538
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Minimum Pulse Width 'u_pll|pixel_pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'
+Slack : 6.572
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Minimum Pulse Width 'CLOCK_50'
+Slack : 8.439
+TNS   : 0.000
+
+------------------------------------------------------------
+Info: see the "DDR report" for DDR timing results
+------------------------------------------------------------
+------------------------------------------------------------
