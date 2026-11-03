@@ -1,4 +1,5 @@
-// Testbench for vga_timing (#25): SR-VGA-02, SR-VGA-03, SR-VGA-04 pulse widths, pixel position.
+// Testbench for vga_timing (#25, #26): SR-VGA-02, SR-VGA-03, SR-VGA-04 pulse widths, SR-VGA-08,
+// pixel position.
 module tb_vga_timing;
 
   // verilog_lint: waive-start parameter-name-style
@@ -19,7 +20,7 @@ module tb_vga_timing;
   logic clk = 1'b0;
   logic rst = 1'b1;
   logic [9:0] pixel_x, pixel_y;
-  logic active, h_sync_pulse, v_sync_pulse;
+  logic active, h_sync_pulse, v_sync_pulse, vblank_start;
 
   vga_timing dut (
       .clk         (clk),
@@ -28,7 +29,8 @@ module tb_vga_timing;
       .pixel_y     (pixel_y),
       .active      (active),
       .h_sync_pulse(h_sync_pulse),
-      .v_sync_pulse(v_sync_pulse)
+      .v_sync_pulse(v_sync_pulse),
+      .vblank_start(vblank_start)
   );
 
   always #1 clk = ~clk;
@@ -51,11 +53,12 @@ module tb_vga_timing;
   longint frames_checked = 0, lines_checked = 0;
   logic prev_hs = 1'b0, prev_vs = 1'b0, prev_act = 1'b0;
   bit first = 1'b1;
+  longint vblanks_since_vs = 0;
 
   always @(negedge clk) begin
     if (!rst) begin
       clk_count++;
-      if ($isunknown({pixel_x, pixel_y, active, h_sync_pulse, v_sync_pulse})) begin
+      if ($isunknown({pixel_x, pixel_y, active, h_sync_pulse, v_sync_pulse, vblank_start})) begin
         fail("X or Z on outputs");
       end
       if (active && (h_sync_pulse || v_sync_pulse)) fail("active during a sync pulse");
@@ -111,6 +114,18 @@ module tb_vga_timing;
         last_act_fall = clk_count;
       end
 
+      // SR-VGA-08: vblank_start is high exactly on the first clock after the last active pixel of
+      // line 767, and on no other clock.
+      if (vblank_start !== (prev_act && !active && row == V_ACTIVE - 1)) begin
+        fail($sformatf(
+             "vblank_start=%0b at row %0d, %0d clocks after the active start",
+             vblank_start,
+             row,
+             clk_count - last_act_rise
+             ));
+      end
+      if (vblank_start) vblanks_since_vs++;
+
       // Vertical (SR-VGA-03, SR-VGA-04).
       if (!prev_vs && v_sync_pulse) begin
         if (last_vs_rise >= 0) begin
@@ -123,8 +138,10 @@ module tb_vga_timing;
                     clk_count - last_act_fall, (H_TOTAL - H_ACTIVE) + V_FRONT_PORCH * H_TOTAL);
         end
         if (row >= 0) expect_eq("last active row", row, V_ACTIVE - 1);
+        expect_eq("vblank_start pulses per frame", vblanks_since_vs, 1);
+        vblanks_since_vs = 0;
         lines_since_vs = 0;
-        last_vs_rise   = clk_count;
+        last_vs_rise = clk_count;
       end
       if (prev_vs && !v_sync_pulse) begin
         if (last_vs_rise >= 0) begin
