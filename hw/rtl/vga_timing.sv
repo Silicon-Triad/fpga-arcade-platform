@@ -24,9 +24,15 @@ module vga_timing #(
 );
 
   // Only the two values of App. A VIDEO_MODE are legal.
-  if (VIDEO_MODE != "XGA_1024x768" && VIDEO_MODE != "VGA_640x480") begin : g_bad_mode
-    $error("vga_timing: VIDEO_MODE must be \"XGA_1024x768\" or \"VGA_640x480\"");
-  end
+  // Elaboration check only: Quartus Prime Lite does not support $error here, so Quartus
+  // synthesis (which defines ALTERA_RESERVED_QIS) skips it; Verilator and QuestaSim run it.
+`ifndef ALTERA_RESERVED_QIS
+  generate
+    if (VIDEO_MODE != "XGA_1024x768" && VIDEO_MODE != "VGA_640x480") begin : g_bad_mode
+      $error("vga_timing: VIDEO_MODE must be \"XGA_1024x768\" or \"VGA_640x480\"");
+    end
+  endgenerate
+`endif
 
   // verilog_lint: waive-start parameter-name-style
   localparam bit BRINGUP = (VIDEO_MODE == "VGA_640x480");
