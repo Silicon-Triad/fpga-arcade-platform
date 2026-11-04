@@ -262,8 +262,12 @@ module tb_arcade_video;
     repeat (TILEMAP_BANK_SIZE + 4) tick();
     check(fpga_ready, "B1: fpga_ready must be high after the tilemap clear");
 
-    // Test data: palette 1 = COLOUR_A, palette 2 = COLOUR_B, palette 0 left black.
-    // Tile 1 is all index 1, tile 2 all index 2, tile 0 left all index 0.
+    // Test data: palette 0 = black, 1 = COLOUR_A, 2 = COLOUR_B; tile 0 is all index 0, tile 1
+    // all index 1, tile 2 all index 2. Every pattern and palette entry the test displays is
+    // written first, as the HAL does before display enable (SR-HAL-13): the pattern RAM and
+    // palette have no reset clear in the RTL, so in QuestaSim they start as x.
+    write_palette(0, 32'h0);
+    write_tile(0, 4'd0);
     write_palette(1, COLOUR_A);
     write_palette(2, COLOUR_B);
     write_tile(1, 4'd1);
@@ -275,16 +279,17 @@ module tb_arcade_video;
     // 2. Display enable = 0: active pixels are black (SR-VGA-09).
     capture_first_pixels();
     for (int i = 0; i < TILE_PX * 2; i++)
-    check(line0[i] == 24'h0, $sformatf("SR-VGA-09: pixel %0d not black with display off", i));
+    check(line0[i] === 24'h0, $sformatf("SR-VGA-09: pixel %0d not black with display off", i));
 
     // 3. Display enable = 1: cell (0,0) shows COLOUR_A, cell (1,0) shows palette 0 (black).
     display_enable = 1'b1;
     capture_first_pixels();
     for (int i = 0; i < TILE_PX; i++)
-    check(line0[i] == COLOUR_A[23:0], $sformatf(
+    check(line0[i] === COLOUR_A[23:0], $sformatf(
           "SR-REN-06: pixel %0d = %06h, expected %06h", i, line0[i], COLOUR_A[23:0]));
     for (int i = TILE_PX; i < TILE_PX * 2; i++)
-    check(line0[i] == 24'h0, $sformatf("SR-REN-06: pixel %0d = %06h, expected black", i, line0[i]));
+    check(line0[i] === 24'h0, $sformatf("SR-REN-06: pixel %0d = %06h, expected black", i, line0[i]
+          ));
 
     // 4. One vblank_start per frame (SR-VGA-08).
     begin
@@ -306,7 +311,7 @@ module tb_arcade_video;
     check(!swap_pending, "SR-REN-03: swap_pending must clear once the swap is applied");
     capture_first_pixels();
     for (int i = 0; i < TILE_PX; i++)
-    check(line0[i] == COLOUR_B[23:0], $sformatf(
+    check(line0[i] === COLOUR_B[23:0], $sformatf(
           "SR-REN-03: pixel %0d = %06h after swap, expected %06h", i, line0[i], COLOUR_B[23:0]));
 
     // 6. PR-05: write the back bank and request a swap halfway through a frame; the first
