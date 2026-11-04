@@ -73,7 +73,8 @@ module tile_renderer_pipeline (
   // Memories (SR-REN-04, SR-REN-05), written by the bridge, loaded at start-up
   // ---------------------------------------------------------------------------
   // Pattern RAM: word {tile, row} holds 8 pixels; pixel x is nibble x (low nibble = left).
-  logic [31:0] pattern_ram[PATTERN_WORDS];
+  // Packed as 4 bytes so Quartus infers one M10K RAM with byte enables (CON-04, #33).
+  logic [3:0][7:0] pattern_ram[PATTERN_WORDS];
   // Palette RAM: 16 entries packed 0x00RRGGBB.
   logic [31:0] palette_ram[arcade_regs_pkg::PALETTE_SIZE];
 
@@ -99,12 +100,20 @@ module tile_renderer_pipeline (
   // ---------------------------------------------------------------------------
   // Memory write ports
   // ---------------------------------------------------------------------------
+  // Pattern RAM in the Quartus byte-enable RAM template: one write port with a byte enable per
+  // byte, one registered read, no reset, alone in its always_ff (CON-04: block RAM, #33).
   always_ff @(posedge clk) begin
     if (pat_wr_en) begin
-      for (int b = 0; b < 4; b++) begin
-        if (pat_wr_strb[b]) pattern_ram[pat_wr_addr][8*b+:8] <= pat_wr_data[8*b+:8];
-      end
+      if (pat_wr_strb[0]) pattern_ram[pat_wr_addr][0] <= pat_wr_data[7:0];
+      if (pat_wr_strb[1]) pattern_ram[pat_wr_addr][1] <= pat_wr_data[15:8];
+      if (pat_wr_strb[2]) pattern_ram[pat_wr_addr][2] <= pat_wr_data[23:16];
+      if (pat_wr_strb[3]) pattern_ram[pat_wr_addr][3] <= pat_wr_data[31:24];
     end
+    // Stage 2: pattern read, word address {tile_index, row} (SR-REN-04).
+    stage2_pattern_row_q <= pattern_ram[{tile_index, y_stage1_q}];
+  end
+
+  always_ff @(posedge clk) begin
     if (pal_wr_en) palette_ram[pal_wr_addr] <= pal_wr_data;
   end
 
@@ -121,24 +130,23 @@ module tile_renderer_pipeline (
       vga_b       <= '0;
     end else begin
       // Stage 1: register pixel position and syncs alongside the tilemap read.
-      hsync_shift[1]       <= hsync_in;
-      vsync_shift[1]       <= vsync_in;
-      blank_shift[1]       <= blank_in;
-      x_stage1_q           <= vga_x[SUB_W-1:0];
-      y_stage1_q           <= vga_y[SUB_W-1:0];
+      hsync_shift[1] <= hsync_in;
+      vsync_shift[1] <= vsync_in;
+      blank_shift[1] <= blank_in;
+      x_stage1_q     <= vga_x[SUB_W-1:0];
+      y_stage1_q     <= vga_y[SUB_W-1:0];
 
-      // Stage 2: pattern read, word address {tile_index, row} (SR-REN-04).
-      stage2_pattern_row_q <= pattern_ram[{tile_index, y_stage1_q}];
-      x_stage2_q           <= x_stage1_q;
-      hsync_shift[2]       <= hsync_shift[1];
-      vsync_shift[2]       <= vsync_shift[1];
-      blank_shift[2]       <= blank_shift[1];
+      // Stage 2: pattern read is in the RAM block above.
+      x_stage2_q     <= x_stage1_q;
+      hsync_shift[2] <= hsync_shift[1];
+      vsync_shift[2] <= vsync_shift[1];
+      blank_shift[2] <= blank_shift[1];
 
       // Stage 3: palette read by the 4-bit index (SR-REN-05).
-      stage3_rgb_q         <= palette_ram[stage2_palette_idx];
-      hsync_shift[3]       <= hsync_shift[2];
-      vsync_shift[3]       <= vsync_shift[2];
-      blank_shift[3]       <= blank_shift[2];
+      stage3_rgb_q   <= palette_ram[stage2_palette_idx];
+      hsync_shift[3] <= hsync_shift[2];
+      vsync_shift[3] <= vsync_shift[2];
+      blank_shift[3] <= blank_shift[2];
 
       // Stage 4: colour output, 0x00RRGGBB at 8 bits/channel (CON-06). No picture is sent
       // during blanking (glossary "Blanking"), so RGB is forced to black there.
@@ -163,15 +171,21 @@ module tile_renderer_pipeline (
 
   // Elaboration checks: one 32-bit word is one tile row, and the word address is exactly
   // {tile_index, row}, so the port widths above agree with the derived sizes.
-  if (BYTES_PER_ROW * 8 != 32 || PATTERN_ADDR_W != $bits(
-          pat_wr_addr
-      ) || PATTERN_ADDR_W != $bits(
-          tile_index
-      ) + $clog2(
-          ROWS_PER_TILE
-      )) begin : g_bad_size
-    $error("tile_renderer_pipeline: pattern RAM geometry does not match arcade_regs_pkg");
-  end
+  // Elaboration check only: Quartus Prime Lite does not support $error here, so Quartus
+  // synthesis (which defines ALTERA_RESERVED_QIS) skips it; Verilator and QuestaSim run it.
+`ifndef ALTERA_RESERVED_QIS
+  generate
+    if (BYTES_PER_ROW * 8 != 32 || PATTERN_ADDR_W != $bits(
+            pat_wr_addr
+        ) || PATTERN_ADDR_W != $bits(
+            tile_index
+        ) + $clog2(
+            ROWS_PER_TILE
+        )) begin : g_bad_size
+      $error("tile_renderer_pipeline: pattern RAM geometry does not match arcade_regs_pkg");
+    end
+  endgenerate
+`endif
 
   // Bits not used by design: tile-grid part of x/y (the tilemap read uses them upstream)
   // and the unused top byte of 0x00RRGGBB.
