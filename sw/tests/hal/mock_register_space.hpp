@@ -32,16 +32,21 @@ class FakeClock final : public MonotonicClock {
 class MockRegisterSpace final : public RegisterSpace {
   public:
     std::uint8_t read8(std::uint32_t offset) noexcept override {
+        countIfReleased();
         log.push_back({Access::Kind::kRead8, offset, mem8[offset]});
         return mem8[offset];
     }
     void write8(std::uint32_t offset, std::uint8_t value) noexcept override {
+        countIfReleased();
         log.push_back({Access::Kind::kWrite8, offset, value});
         mem8[offset] = value;
     }
     std::uint32_t read32(std::uint32_t offset) noexcept override {
+        countIfReleased();
         std::uint32_t v = 0;
-        if (offset == kOffsetSwapReqFrontBank) {
+        if (offset == kOffsetControlReg) {
+            v = control;
+        } else if (offset == kOffsetSwapReqFrontBank) {
             v = front << kBitFrontBank;
         } else if (offset == kOffsetStatusReg) {
             ++statusReads;
@@ -56,14 +61,30 @@ class MockRegisterSpace final : public RegisterSpace {
         return v;
     }
     void write32(std::uint32_t offset, std::uint32_t value) noexcept override {
+        countIfReleased();
         log.push_back({Access::Kind::kWrite32, offset, value});
+        if (offset == kOffsetControlReg) {
+            control = value;
+        }
+    }
+    /// SR-HAL-07 release hook (#34 implements the real munmap); records the call.
+    void release() noexcept override { ++releaseCalls; }
+
+    void countIfReleased() noexcept {
+        if (releaseCalls > 0) {
+            ++accessesAfterRelease;
+        }
     }
 
-    std::array<std::uint8_t, kOffsetTilePatternRam> mem8{};  // both tilemap banks
+    std::array<std::uint8_t, kOffsetTilePatternRam + TILE_PATTERN_RAM_SIZE>
+        mem8{};  // banks, patterns
     std::vector<Access> log;
     std::uint32_t front = 0;
     std::uint32_t status = 0;
     std::uint32_t frameCounter = 0;
+    std::uint32_t control = 0;  // Control Register (read-modify-write, SR-HAL-13)
+    int releaseCalls = 0;
+    int accessesAfterRelease = 0;
     int statusReads = 0;
     std::function<void(int)> onStatusRead;
 };

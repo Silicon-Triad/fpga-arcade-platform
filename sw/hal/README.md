@@ -12,6 +12,7 @@ Hardware Access Layer: bridge mapping, shadow tilemap, present(), audio register
 | `register_map.hpp` | FROZEN register map (offsets, bits, sizes) | §3.1.4 |
 | `register_space.hpp` | `RegisterSpace`: the register-access seam (read8/write8/read32/write32, writeBlock8) | §3.1.4 |
 | `tilemap_hal.hpp/.cpp` | `TilemapHal`: shadow tilemap, present(), swap poll, frame state | SR-HAL-03, 04, 05, 06, 08 |
+| `hal_lifecycle.hpp/.cpp` | `HalLifecycle`: start-up load (patterns, palette, Display Enable) and shutdown() | SR-HAL-13, SR-HAL-07 |
 
 ## The register-access seam
 
@@ -33,5 +34,25 @@ The poll clock is injected as a `MonotonicClock` (`SteadyClock` on the board, a 
 - **Out-of-range calls** return `HalStatus::kOutOfRange` and write nothing; `fillRect` with width or height 0 inside the grid is `kOk`.
 - **A timed-out present()** still counts the back bank as written: its contents match the shadow. The next present() first checks Status swap pending; while that swap is still pending it waits (SR-HAL-05) and, if it times out again, writes no cell and returns `kSwapTimeout`, so a late swap can never show a half-written bank (review of #108).
 - **The poll clears the vsync flag.** Status bit 0 clears on read (§3.1.4) and the poll reads Status many times per frame, so no code may rely on that bit; use the Frame Counter (SR-HAL-06) instead.
+
+## Lifecycle (#36)
+
+`HalLifecycle::loadAssets(patterns, palette)` (SR-HAL-13, SR-VGA-09), in this order:
+
+1. Check every palette entry fits 0x00RRGGBB; otherwise return `kInvalidPalette` and write nothing.
+2. Write the 256 patterns (32 bytes each, as given, never repacked) to Tile Pattern RAM, pattern *i* at `kOffsetTilePatternRam + 32*i`, through `writeBlock8`.
+3. Write the 16 palette entries to `kOffsetPaletteBase + 4*i`, repacked from their channels with the `kPalette*Shift`/`kPaletteChannelMask` constants.
+4. Read Control, OR in Display Enable (bit 2), write it back: other bits are kept. This is the only Control write.
+
+`HalLifecycle::shutdown()` (SR-HAL-07) calls `RegisterSpace::release()` once and writes no register, so Display Enable stays set and "SAFE TO SWITCH OFF" (SR-FW-13) stays on screen. A second call does nothing; `loadAssets()` after it returns `kShutDown` without access.
+
+**Release hook for #34.** `RegisterSpace::release()` is a virtual with an empty default. The `/dev/mem` implementation overrides it to `munmap` the window and close the file descriptor, and after it reads return 0 and writes are dropped, so nothing touches the bridge after shutdown. `HalLifecycle` does not change. The mock counts `release()` calls and any access made after it.
+
+### Design choices for #36 (not SRS values)
+
+- **A separate class, not methods on `TilemapHal`.** Load and shutdown run once and share no state with the shadow tilemap, so #35's class stays unchanged. #37 owns both objects on one `RegisterSpace`.
+- **HAL-native input types** (`HalTileSet`, `HalPalette`) sized from `register_map.hpp`, so `sw/hal/` does not depend on `arcade/types.hpp`; #37 converts (the layouts are the same).
+- **No tilemap reset (Control bit 1) during load.** The SRS only says to set Display Enable after the load; the first `present()` writes every cell of both banks anyway (#35).
+- **Palette validated before any write**, so a rejected load leaves the bridge untouched.
 
 Rules: see [`AGENTS.md`](/AGENTS.md).
