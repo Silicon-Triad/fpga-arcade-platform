@@ -5,6 +5,8 @@ QA-01: Game -> Arcade API -> HAL -> FPGA registers; no layer calls a layer above
 bypasses the layer below it. Enforced on #include lines:
   - only files under sw/hal/ and its unit tests in sw/tests/hal/ may include
     register_map.hpp;
+  - only files under sw/input/ and its unit tests in sw/tests/input/ may include
+    arcade/default_keymap.hpp, because it pulls in <linux/input.h> (QA-03 portability);
   - files under sw/games/ may include only arcade/*.hpp, C++17 standard-library headers,
     and their own game's headers (files inside the same sw/games/<game>/ folder).
 
@@ -54,6 +56,8 @@ EXPECTED_BAD = {
     ("sw/games/bad_game/bad_game.cpp", "stdint.h"),
     ("sw/tests/engine/engine_test.cpp", "hal/register_map.hpp"),
     ("sw/games/bad_game/after_string.cpp", "hal/register_map.hpp"),
+    ("sw/games/bad_game/keymap_game.cpp", "arcade/default_keymap.hpp"),
+    ("sw/engine/keymap_engine.cpp", "arcade/default_keymap.hpp"),
 }
 TOKEN_RE = re.compile(r'//|/\*|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
 
@@ -126,10 +130,13 @@ def check(root):
             continue
         rel = path.relative_to(root).as_posix()
         in_hal = rel.startswith(("sw/hal/", "sw/tests/hal/"))  # HAL and its unit tests
+        in_input = rel.startswith(("sw/input/", "sw/tests/input/"))  # Input Manager and tests
         in_game = rel.startswith("sw/games/") and len(Path(rel).parts) > 3
         for n, delim, header in includes(path):
             if Path(header).name == "register_map.hpp" and not in_hal:
                 violations.append((rel, n, header, "only sw/hal/ and sw/tests/hal/ may include register_map.hpp"))
+            elif Path(header).name == "default_keymap.hpp" and not in_input:
+                violations.append((rel, n, header, "only sw/input/ and sw/tests/input/ may include arcade/default_keymap.hpp (it needs <linux/input.h>)"))
             elif in_game:
                 error = game_include_error(root, path, delim, header)
                 if error:
