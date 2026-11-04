@@ -97,19 +97,20 @@ TEST_F(HalFixture, SR_HAL_04_FillRectEmptyIsOkAndWritesNothing) {
 }
 
 TEST_F(HalFixture, SR_HAL_08_OrderIsCellWritesThenSwapRequestThenPoll) {
-    regs.status = kSwapPendingMask;
-    regs.onStatusRead = [&](int n) {
-        if (n == 3) {
-            regs.status = 0;
-        }
-    };
+    // Read 1 is the pending check before the copy (clear); reads 2 and 3 after the Swap
+    // Request see pending; read 4 sees it cleared.
+    regs.onStatusRead = [&](int n) { regs.status = (n == 2 || n == 3) ? kSwapPendingMask : 0; };
     hal.setTile(1, 1, 8);
     ASSERT_EQ(hal.present(), HalStatus::kOk);
 
-    // First access: Front Bank read. Then only cell writes, one Swap Request, then polls.
-    ASSERT_FALSE(regs.log.empty());
-    EXPECT_EQ(regs.log.front().kind, Access::Kind::kRead32);
-    EXPECT_EQ(regs.log.front().offset, kOffsetSwapReqFrontBank);
+    // First: the pending check, then the Front Bank read. Then only cell writes, one Swap
+    // Request, then polls.
+    ASSERT_GE(regs.log.size(), 2u);
+    EXPECT_EQ(regs.log[0].kind, Access::Kind::kRead32);
+    EXPECT_EQ(regs.log[0].offset, kOffsetStatusReg);
+    EXPECT_EQ(regs.log[1].kind, Access::Kind::kRead32);
+    EXPECT_EQ(regs.log[1].offset, kOffsetSwapReqFrontBank);
+    regs.log.erase(regs.log.begin());
     enum : std::uint8_t { kCells, kSwap, kPoll } phase = kCells;
     std::size_t cells = 0;
     int swaps = 0;
@@ -133,7 +134,65 @@ TEST_F(HalFixture, SR_HAL_08_OrderIsCellWritesThenSwapRequestThenPoll) {
     }
     EXPECT_EQ(cells, TILEMAP_BANK_SIZE);  // first present: whole back bank
     EXPECT_EQ(swaps, 1);
-    EXPECT_EQ(regs.statusReads, 3);
+    EXPECT_EQ(regs.statusReads, 4);
+}
+
+TEST_F(HalFixture, SR_HAL_08_NoCellWriteWhileEarlierSwapStillPending) {
+    // Hardware model for this test: a Swap Request sets pending and it never clears.
+    regs.onStatusRead = [&](int) {
+        clock.t += 1ms;
+        for (const auto& a : regs.log) {
+            if (a.kind == Access::Kind::kWrite32 && a.offset == kOffsetSwapReqFrontBank) {
+                regs.status = kSwapPendingMask;
+            }
+        }
+    };
+    regs.front = 0;
+    ASSERT_EQ(hal.present(), HalStatus::kSwapTimeout);  // bank 1 written, swap times out
+
+    regs.log.clear();
+    hal.setTile(2, 2, 9);
+    EXPECT_EQ(hal.present(), HalStatus::kSwapTimeout);
+    EXPECT_EQ(countWrite8(regs, 0, kOffsetTilePatternRam), 0u);
+    for (const auto& a : regs.log) {
+        EXPECT_NE(a.kind, Access::Kind::kWrite32) << "no second Swap Request while pending";
+    }
+
+    // The late swap lands: bank 1 is front, so the next present() writes bank 0 in full
+    // (never written yet) and leaves bank 1 alone except the changed cell next time.
+    regs.onStatusRead = nullptr;
+    regs.status = 0;
+    regs.front = 1;
+    regs.log.clear();
+    ASSERT_EQ(hal.present(), HalStatus::kOk);
+    EXPECT_EQ(countWrite8(regs, kOffsetTilemapBank0, kOffsetTilemapBank1), TILEMAP_BANK_SIZE);
+    EXPECT_EQ(countWrite8(regs, kOffsetTilemapBank1, kOffsetTilePatternRam), 0u);
+    EXPECT_EQ(regs.mem8[bank0(2, 2)], 9);
+
+    regs.front = 0;
+    regs.log.clear();
+    ASSERT_EQ(hal.present(), HalStatus::kOk);
+    EXPECT_EQ(countWrite8(regs, kOffsetTilemapBank1, kOffsetTilePatternRam), 1u);
+    EXPECT_EQ(regs.mem8[bank1(2, 2)], 9);
+}
+
+TEST_F(HalFixture, SR_HAL_08_WaitsForEarlierSwapThenCopies) {
+    // Pending at entry, clears on the third Status read; the copy happens only after that.
+    regs.onStatusRead = [&](int n) { regs.status = n < 3 ? kSwapPendingMask : 0; };
+    ASSERT_EQ(hal.present(), HalStatus::kOk);
+    std::size_t firstWrite = regs.log.size();
+    std::size_t lastPendingRead = 0;
+    for (std::size_t i = 0; i < regs.log.size(); ++i) {
+        if (regs.log[i].kind == Access::Kind::kWrite8 && firstWrite == regs.log.size()) {
+            firstWrite = i;
+        }
+        if (regs.log[i].kind == Access::Kind::kRead32 && regs.log[i].offset == kOffsetStatusReg &&
+            (regs.log[i].value & kSwapPendingMask) != 0u) {
+            lastPendingRead = i;
+        }
+    }
+    EXPECT_LT(lastPendingRead, firstWrite);
+    EXPECT_EQ(countWrite8(regs, 0, kOffsetTilePatternRam), TILEMAP_BANK_SIZE);
 }
 
 TEST_F(HalFixture, SR_HAL_08_FirstPresentWritesWholeBackBank) {

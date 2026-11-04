@@ -77,6 +77,15 @@ std::uint8_t TilemapHal::shadowTile(int col, int row) const noexcept {
 }
 
 HalStatus TilemapHal::present() noexcept {
+    // SR-HAL-08: never write a bank while an earlier swap is still pending (e.g. after a
+    // timed-out present()): the pending swap could put the bank on screen mid-copy. Wait for
+    // it first (SR-HAL-05); if it still has not cleared, write nothing and report timeout.
+    if ((regs_.read32(kOffsetStatusReg) & (1u << kBitStatusSwapPending)) != 0u) {
+        const HalStatus pending = waitSwapComplete();
+        if (pending != HalStatus::kOk) {
+            return pending;
+        }
+    }
     // SR-HAL-08 (1): the back bank is the one not in front; it is two frames behind the
     // shadow, so copy every cell changed since THIS bank was last written.
     const unsigned back = frontBank() ^ 1u;

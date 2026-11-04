@@ -57,9 +57,11 @@ class TilemapHal {
     /// Read one shadow cell (no bridge access); 0 if out of range. For callers and tests.
     std::uint8_t shadowTile(int col, int row) const noexcept;
 
-    /// SR-HAL-08: (1) read Front Bank and copy to the back bank every cell changed since
-    /// that bank was last written (the whole bank on the first call); (2) write Swap
-    /// Request; (3) return the result of waitSwapComplete() (SR-HAL-05).
+    /// SR-HAL-08: if a previous swap is still pending, first wait for it (SR-HAL-05) and
+    /// return kSwapTimeout without writing any cell if it does not clear. Then: (1) read Front Bank
+    /// and copy to the back bank every cell changed since that bank was last written (the whole
+    /// bank on the first call); (2) write Swap Request; (3) return the result of waitSwapComplete()
+    /// (SR-HAL-05).
     HalStatus present() noexcept;
 
     /// SR-HAL-05: blocking poll of Status swap-pending. Returns kOk as soon as it reads

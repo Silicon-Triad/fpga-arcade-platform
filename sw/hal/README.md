@@ -1,6 +1,6 @@
 # `sw/hal/`
 
-**Owner:** Muhammad (HAL C++ reassigned on #35); reviewer: Mujtaba (HAL and register map)  
+**Owner:** Mujtaba  
 **Issues:** #4, #34–#36, #43, #44
 
 Hardware Access Layer: bridge mapping, shadow tilemap, present(), audio registers, codec I2C. `register_map.hpp` is FROZEN and only this folder may include it (QA-01). SRS: SR-HAL, §3.1.4.
@@ -31,6 +31,7 @@ The poll clock is injected as a `MonotonicClock` (`SteadyClock` on the board, a 
 - **Cell address** inside a bank is `row * GRID_COLS + col`, the same as `hw/rtl/tilemap_crop.sv`.
 - **Timeout boundary.** The poll reads Status first, then times out only once *more than* `VSYNC_TIMEOUT` (App. A, 100 ms) has passed, so a bit that clears at exactly 100 ms counts as success. The poll busy-waits; it does not sleep between reads.
 - **Out-of-range calls** return `HalStatus::kOutOfRange` and write nothing; `fillRect` with width or height 0 inside the grid is `kOk`.
-- **A timed-out present()** still counts the back bank as written: its contents match the shadow, so the next present() stays correct whichever bank is in front.
+- **A timed-out present()** still counts the back bank as written: its contents match the shadow. The next present() first checks Status swap pending; while that swap is still pending it waits (SR-HAL-05) and, if it times out again, writes no cell and returns `kSwapTimeout`, so a late swap can never show a half-written bank (review of #108).
+- **The poll clears the vsync flag.** Status bit 0 clears on read (§3.1.4) and the poll reads Status many times per frame, so no code may rely on that bit; use the Frame Counter (SR-HAL-06) instead.
 
 Rules: see [`AGENTS.md`](/AGENTS.md).
