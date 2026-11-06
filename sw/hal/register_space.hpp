@@ -33,6 +33,12 @@ class RegisterSpace {
             write8(offset + static_cast<std::uint32_t>(i), data[i]);
         }
     }
+
+    /// SR-HAL-07: release the bridge resources this space holds (#34: munmap the window and
+    /// close /dev/mem). Called once, by HalLifecycle::shutdown(). After it returns, the space
+    /// performs no bridge access: later reads return 0 and later writes are dropped. It never
+    /// writes any register itself, so Display Enable stays set. The default does nothing.
+    virtual void release() noexcept {}
 };
 
 }  // namespace arcade::hal
