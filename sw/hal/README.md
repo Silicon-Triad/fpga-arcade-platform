@@ -42,7 +42,7 @@ The poll clock is injected as a `MonotonicClock` (`SteadyClock` on the board, a 
 1. Check every palette entry fits 0x00RRGGBB; otherwise return `kInvalidPalette` and write nothing.
 2. Write the 256 patterns (32 bytes each, as given, never repacked) to Tile Pattern RAM, pattern *i* at `kOffsetTilePatternRam + 32*i`, through `writeBlock8`.
 3. Write the 16 palette entries to `kOffsetPaletteBase + 4*i`, repacked from their channels with the `kPalette*Shift`/`kPaletteChannelMask` constants.
-4. Read Control, OR in Display Enable (bit 2), write it back: other bits are kept. This is the only Control write.
+4. Write Control with only Display Enable (bit 2) set; reset tilemap (bit 1) and the reserved bits are written 0. No read-modify-write: §3.1.4 does not say whether bit 1 clears itself or what reserved bits read back as, so a write-back could carry a stale tilemap reset (review of #110). This is the only Control access.
 
 `HalLifecycle::shutdown()` (SR-HAL-07) calls `RegisterSpace::release()` once and writes no register, so Display Enable stays set and "SAFE TO SWITCH OFF" (SR-FW-13) stays on screen. A second call does nothing; `loadAssets()` after it returns `kShutDown` without access.
 

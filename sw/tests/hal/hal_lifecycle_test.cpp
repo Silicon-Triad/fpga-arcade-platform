@@ -102,16 +102,18 @@ TEST_F(LifecycleFixture, SR_HAL_13_PaletteWrittenAs00RRGGBBAtBasePlus4i) {
     EXPECT_EQ(i, PALETTE_SIZE);
 }
 
-TEST_F(LifecycleFixture, SR_HAL_13_DisplayEnableIsReadModifyWriteKeepingOtherBits) {
-    const std::uint32_t other = 0xF0000001u | kResetTilemapMask;
-    regs.control = other;
+TEST_F(LifecycleFixture, SR_HAL_13_DisplayEnableWrittenAloneWithoutReadBack) {
+    regs.control = 0xF0000001u | kResetTilemapMask;  // stale bits from an earlier run
     ASSERT_EQ(hal.loadAssets(patterns, palette), HalStatus::kOk);
-    const auto& last = regs.log.back();
-    const auto& prev = regs.log[regs.log.size() - 2];
-    EXPECT_EQ(prev.kind, Access::Kind::kRead32);
-    EXPECT_EQ(prev.offset, kOffsetControlReg);
-    EXPECT_TRUE(isControlWrite(last));
-    EXPECT_EQ(last.value, other | kDisplayEnableMask);
+    std::size_t controlAccesses = 0;
+    for (const auto& a : regs.log) {
+        if (a.offset == kOffsetControlReg) {
+            ++controlAccesses;
+            EXPECT_TRUE(isControlWrite(a));  // never read
+        }
+    }
+    EXPECT_EQ(controlAccesses, 1u);
+    EXPECT_EQ(regs.log.back().value, kDisplayEnableMask);  // bit 1 and reserved bits are 0
 }
 
 TEST_F(LifecycleFixture, SR_HAL_13_RejectedPaletteLeavesDisplayEnableClear) {

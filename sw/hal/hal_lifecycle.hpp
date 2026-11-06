@@ -25,9 +25,9 @@ class HalLifecycle {
     explicit HalLifecycle(RegisterSpace& regs) noexcept;
 
     /// SR-HAL-13 (with SR-VGA-09): write all patterns to Tile Pattern RAM, then all palette
-    /// entries to Palette Base + 4*i, then set Display Enable (Control bit 2) by a
-    /// read-modify-write that keeps the other bits. Returns kInvalidPalette, writing nothing,
-    /// if an entry has bits above 0x00RRGGBB, or kShutDown after shutdown(). On any error
+    /// entries to Palette Base + 4*i, then write Control with only Display Enable (bit 2) set:
+    /// reset tilemap (bit 1) and reserved bits are written 0. Returns kInvalidPalette, writing
+    /// nothing, if an entry has bits above 0x00RRGGBB, or kShutDown after shutdown(). On any error
     /// Display Enable is not written.
     HalStatus loadAssets(const HalTileSet& patterns, const HalPalette& palette) noexcept;
 

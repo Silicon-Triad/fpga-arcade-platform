@@ -41,9 +41,9 @@ HalStatus HalLifecycle::loadAssets(const HalTileSet& patterns, const HalPalette&
             kOffsetPaletteBase + static_cast<std::uint32_t>(i * kBytesPerPaletteEntry);
         regs_.write32(offset, packPaletteEntry(palette[i]));
     }
-    // SR-HAL-13 step 3, only after both loads: set Display Enable, keeping other bits.
-    const std::uint32_t control = regs_.read32(kOffsetControlReg);
-    regs_.write32(kOffsetControlReg, control | (1u << kBitControlDisplayEnable));
+    // SR-HAL-13 step 3, only after both loads: set Display Enable only; bit 1 (reset tilemap)
+    // and the reserved bits are written 0 (§3.1.4, reset value 0x00000000). No read-back.
+    regs_.write32(kOffsetControlReg, 1u << kBitControlDisplayEnable);
     return HalStatus::kOk;
 }
 
