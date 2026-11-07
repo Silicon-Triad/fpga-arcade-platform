@@ -1,7 +1,7 @@
 # `sw/hal/`
 
 **Owner:** Mujtaba  
-**Issues:** #4, #34–#36, #43, #44
+**Issues:** #4, #34–#36, #38, #43, #44
 
 Hardware Access Layer: bridge mapping, shadow tilemap, present(), audio registers, codec I2C. `register_map.hpp` is FROZEN and only this folder may include it (QA-01). SRS: SR-HAL, §3.1.4.
 
@@ -12,6 +12,8 @@ Hardware Access Layer: bridge mapping, shadow tilemap, present(), audio register
 | `register_map.hpp` | FROZEN register map (offsets, bits, sizes) | §3.1.4 |
 | `register_space.hpp` | `RegisterSpace`: the register-access seam (read8/write8/read32/write32, writeBlock8) | §3.1.4 |
 | `tilemap_hal.hpp/.cpp` | `TilemapHal`: shadow tilemap, present(), swap poll, frame state | SR-HAL-03, 04, 05, 06, 08 |
+| `bridge_benchmark.hpp/.cpp` | `benchmarkTilemapWrites()`: timed full-bank writes to the back bank | §3.1.4 data rate, PR-04 (#38) |
+| `bridge_benchmark_main.cpp` | `bridge_benchmark` board tool; its own `/dev/mem` mapping until #34 lands | §3.1.4, #38 |
 
 ## The register-access seam
 

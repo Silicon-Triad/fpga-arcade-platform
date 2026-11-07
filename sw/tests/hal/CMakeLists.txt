@@ -1,2 +1,3 @@
 arcade_add_test(register_map_test SOURCES register_map_test.cpp LIBS arcade_hal)
 arcade_add_test(tilemap_hal_test SOURCES tilemap_hal_test.cpp LIBS arcade_hal)
+arcade_add_test(bridge_benchmark_test SOURCES bridge_benchmark_test.cpp LIBS arcade_hal)
