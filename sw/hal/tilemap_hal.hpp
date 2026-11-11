@@ -16,9 +16,11 @@ inline constexpr std::chrono::milliseconds VSYNC_TIMEOUT{100};  // SR-HAL-05
 
 /// Distinct HAL result codes (SR-HAL-02 style, R-4.1.5). No HAL call throws.
 enum class HalStatus : std::uint8_t {
-    kOk,           ///< The call succeeded.
-    kOutOfRange,   ///< A cell coordinate or rectangle lies outside the 128x96 grid.
-    kSwapTimeout,  ///< Swap pending did not clear within VSYNC_TIMEOUT (SR-HAL-05).
+    kOk,              ///< The call succeeded.
+    kOutOfRange,      ///< A cell coordinate or rectangle lies outside the 128x96 grid.
+    kSwapTimeout,     ///< Swap pending did not clear within VSYNC_TIMEOUT (SR-HAL-05).
+    kInvalidPalette,  ///< A palette entry has bits set above 0x00RRGGBB (SR-HAL-13, §3.1.4).
+    kShutDown,        ///< The HAL was already shut down; nothing was written (SR-HAL-07).
 };
 
 /// Monotonic time source for the SR-HAL-05 poll, injected so tests need not sleep.
