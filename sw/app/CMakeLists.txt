@@ -1,8 +1,8 @@
 # The arcade program (issue #16, SR-FW-01, SR-FW-05, SF-02).
-add_library(arcade_startup options.cpp startup.cpp)
+add_library(arcade_startup options.cpp startup.cpp fpga_start.cpp)
 target_include_directories(arcade_startup PUBLIC ${PROJECT_SOURCE_DIR}/sw)
 target_link_libraries(arcade_startup
-    PUBLIC arcade_api
+    PUBLIC arcade_api arcade_hal arcade_input arcade_backend_fpga
     PRIVATE arcade_engine arcade_assets arcade_game_registry arcade_warnings)
 
 add_executable(arcade main.cpp)
