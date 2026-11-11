@@ -10,6 +10,10 @@
 //   4. vblank_start pulses once per frame and VGA_SYNC_N stays 0 (SR-VGA-06, SR-VGA-08).
 //   5. A swap request flips the front bank at the next vblank_start (SR-REN-03), and the
 //      other bank's contents are then shown.
+//   6. PR-05 frame-update latency (Refs #32): the whole back bank is written and a swap is
+//      requested halfway through a frame. Every pixel of the rest of that frame still shows
+//      the old front bank, every pixel of the first frame scanned out after the swap matches
+//      the new tilemap, and that frame is complete on the pins within 16.7 ms of the swap.
 // The colour values below are test data, not SRS values.
 
 // verilog_lint: waive-start parameter-name-style
@@ -24,6 +28,15 @@ module tb_arcade_video;
 
   localparam bit [31:0] COLOUR_A = 32'h0012_3456;  // test colour for palette index 1
   localparam bit [31:0] COLOUR_B = 32'h00AB_CDEF;  // test colour for palette index 2
+
+  // Section 6 (PR-05). The DUT runs in its default VIDEO_MODE, XGA 1024x768 (SR-VGA-11):
+  // GRID_COLS x GRID_ROWS cells of TILE_PX x TILE_PX pixels, all displayed.
+  localparam int FRAME_W = GRID_COLS * TILE_PX;  // 1024 active pixels per line (SR-VGA-02)
+  localparam int FRAME_H = GRID_ROWS * TILE_PX;  // 768 active lines per frame (SR-VGA-03)
+  localparam longint PIXEL_CLOCK_HZ = 65_000_000;  // SR-VGA-01: 65.000 MHz
+  localparam longint PR05_LIMIT_US = 16_700;  // PR-05: within 16.7 ms of the swap
+  // PR-05 limit in pixel clocks: 16.7 ms x 65.000 MHz = 1,085,500
+  localparam longint PR05_LIMIT_CLKS = PIXEL_CLOCK_HZ / 1_000_000 * PR05_LIMIT_US;
 
   logic clk = 1'b0;
   always #1 clk = ~clk;
@@ -85,8 +98,14 @@ module tb_arcade_video;
     end
   endtask
 
+  // Testbench copy of both tilemap banks. Both start at 0: the SR-REN-07 clear after reset.
+  logic [7:0] model[2][TILEMAP_BANK_SIZE];
+  initial
+    for (int b = 0; b < 2; b++) for (int a = 0; a < TILEMAP_BANK_SIZE; a++) model[b][a] = 8'd0;
+
   task automatic write_cell(input logic bank, input int addr, input logic [7:0] tile);
-    tm_wr_en   = 1'b1;
+    model[bank][addr] = tile;
+    tm_wr_en = 1'b1;
     tm_wr_bank = bank;
     tm_wr_addr = TM_ADDR_W'(addr);
     tm_wr_data = tile;
@@ -151,6 +170,76 @@ module tb_arcade_video;
   int vblanks = 0;
   always @(posedge clk) if (vblank_start) vblanks++;
 
+  longint cycle = 0;
+  always @(posedge clk) cycle++;
+
+  // Colour of a solid test tile: tile 1 = palette 1, tile 2 = palette 2, others palette 0.
+  function automatic logic [23:0] tile_colour(input logic [7:0] tile);
+    case (tile)
+      8'd1: return COLOUR_A[23:0];
+      8'd2: return COLOUR_B[23:0];
+      default: return 24'h0;
+    endcase
+  endfunction
+
+  // Section 6 (PR-05) pin monitor. Counts frames and active pixels as they leave the VGA pins:
+  // a new frame starts when VGA_VS goes low (it is active low, SR-VGA-04, and comes between
+  // two active regions). While chk_on, every active pixel of a frame >= chk_first_frame is
+  // compared with the bank model: frames up to swap_frame must show old_bank, later frames
+  // new_bank. For frame swap_frame + 1, the first frame after the swap, the cycle of its first
+  // and last active pixel is recorded.
+  int   pin_frame = 0;
+  int   pin_px = 0;
+  logic vga_vs_q = 1'b1;
+  logic chk_on = 1'b0;
+  int   chk_first_frame = 0;
+  int   swap_frame = 32'h7FFF_FFFF;
+  logic old_bank = 1'b0, new_bank = 1'b0;
+  int pr05_mismatches = 0;
+  int new_frame_px = 0;
+  longint new_first_cycle = 0, new_last_cycle = 0;
+
+  always @(negedge clk) begin
+    if (vga_vs_q && !vga_vs) begin
+      pin_frame++;
+      pin_px = 0;
+    end
+    vga_vs_q = vga_vs;
+    if (vga_blank_n) begin
+      if (chk_on && pin_frame >= chk_first_frame) begin
+        int x, y, cell_idx;
+        logic bank;
+        logic [23:0] exp;
+        x = pin_px % FRAME_W;
+        y = pin_px / FRAME_W;
+        cell_idx = (y / TILE_PX) * GRID_COLS + x / TILE_PX;  // TBL-Tilemap: row * GRID_COLS + col
+        bank = (pin_frame <= swap_frame) ? old_bank : new_bank;
+        exp = tile_colour(model[bank][cell_idx]);
+        if ({vga_r, vga_g, vga_b} !== exp) begin
+          if (pr05_mismatches < 5)
+            $display(
+                "FAIL: PR-05 frame %0d pixel (%0d,%0d) = %06h, expected %06h (bank %0d)",
+                pin_frame,
+                x,
+                y,
+                {
+                  vga_r, vga_g, vga_b
+                },
+                exp,
+                bank
+            );
+          pr05_mismatches++;
+        end
+        if (pin_frame == swap_frame + 1) begin
+          if (new_frame_px == 0) new_first_cycle = cycle;
+          new_last_cycle = cycle;
+          new_frame_px++;
+        end
+      end
+      pin_px++;
+    end
+  end
+
   initial begin
     {tm_wr_en, tm_wr_bank, swap_req, pat_wr_en, pal_wr_en} = '0;
     {reset_tilemap, display_enable} = '0;
@@ -173,8 +262,12 @@ module tb_arcade_video;
     repeat (TILEMAP_BANK_SIZE + 4) tick();
     check(fpga_ready, "B1: fpga_ready must be high after the tilemap clear");
 
-    // Test data: palette 1 = COLOUR_A, palette 2 = COLOUR_B, palette 0 left black.
-    // Tile 1 is all index 1, tile 2 all index 2, tile 0 left all index 0.
+    // Test data: palette 0 = black, 1 = COLOUR_A, 2 = COLOUR_B; tile 0 is all index 0, tile 1
+    // all index 1, tile 2 all index 2. Every pattern and palette entry the test displays is
+    // written first, as the HAL does before display enable (SR-HAL-13): the pattern RAM and
+    // palette have no reset clear in the RTL, so in QuestaSim they start as x.
+    write_palette(0, 32'h0);
+    write_tile(0, 4'd0);
     write_palette(1, COLOUR_A);
     write_palette(2, COLOUR_B);
     write_tile(1, 4'd1);
@@ -186,16 +279,17 @@ module tb_arcade_video;
     // 2. Display enable = 0: active pixels are black (SR-VGA-09).
     capture_first_pixels();
     for (int i = 0; i < TILE_PX * 2; i++)
-    check(line0[i] == 24'h0, $sformatf("SR-VGA-09: pixel %0d not black with display off", i));
+    check(line0[i] === 24'h0, $sformatf("SR-VGA-09: pixel %0d not black with display off", i));
 
     // 3. Display enable = 1: cell (0,0) shows COLOUR_A, cell (1,0) shows palette 0 (black).
     display_enable = 1'b1;
     capture_first_pixels();
     for (int i = 0; i < TILE_PX; i++)
-    check(line0[i] == COLOUR_A[23:0], $sformatf(
+    check(line0[i] === COLOUR_A[23:0], $sformatf(
           "SR-REN-06: pixel %0d = %06h, expected %06h", i, line0[i], COLOUR_A[23:0]));
     for (int i = TILE_PX; i < TILE_PX * 2; i++)
-    check(line0[i] == 24'h0, $sformatf("SR-REN-06: pixel %0d = %06h, expected black", i, line0[i]));
+    check(line0[i] === 24'h0, $sformatf("SR-REN-06: pixel %0d = %06h, expected black", i, line0[i]
+          ));
 
     // 4. One vblank_start per frame (SR-VGA-08).
     begin
@@ -217,8 +311,61 @@ module tb_arcade_video;
     check(!swap_pending, "SR-REN-03: swap_pending must clear once the swap is applied");
     capture_first_pixels();
     for (int i = 0; i < TILE_PX; i++)
-    check(line0[i] == COLOUR_B[23:0], $sformatf(
+    check(line0[i] === COLOUR_B[23:0], $sformatf(
           "SR-REN-03: pixel %0d = %06h after swap, expected %06h", i, line0[i], COLOUR_B[23:0]));
+
+    // 6. PR-05: write the back bank and request a swap halfway through a frame; the first
+    //    frame scanned out after the swap must match the new tilemap, within 16.7 ms.
+    begin
+      longint swap_cycle;
+      old_bank = front_bank;  // bank 1 after section 5
+      new_bank = !front_bank;
+      check(!swap_pending, "PR-05: no swap may be pending before the test");
+      // Start checking at the next frame on the pins, from its first pixel.
+      wait_vblank();
+      chk_first_frame = pin_frame + 1;
+      chk_on = 1'b1;
+      while (!(pin_frame == chk_first_frame && pin_px >= FRAME_W * FRAME_H / 2)) @(negedge clk);
+      // Halfway through frame chk_first_frame: rewrite every cell of the back bank with a
+      // pattern that differs from cell to cell, then request the swap, as present() does
+      // (SR-HAL-08). Two thirds of the cells differ from the old front bank, so a missed or
+      // early swap shows up as a pixel mismatch.
+      swap_frame = pin_frame;
+      for (int r = 0; r < GRID_ROWS; r++)
+      for (int c = 0; c < GRID_COLS; c++)
+      write_cell(new_bank, r * GRID_COLS + c, 8'((c + 2 * r) % 3));
+      check(pin_frame == swap_frame, "PR-05: back-bank writes must finish inside the frame");
+      check(front_bank == old_bank, "PR-05: writing the back bank must not change the front bank");
+      swap_req = 1'b1;
+      tick();
+      swap_req = 1'b0;
+      check(swap_pending, "PR-05: swap_pending must be set after the swap request");
+      // The swap happens on the next vblank_start (SR-REN-03, SR-VGA-08).
+      @(posedge clk iff vblank_start);
+      swap_cycle = cycle;
+      @(negedge clk);
+      tick();
+      check(front_bank == new_bank, "PR-05: front bank must flip at the vblank after the request");
+      // Wait until the first frame after the swap has left the pins.
+      while (pin_frame <= swap_frame + 1) @(negedge clk);
+      chk_on = 1'b0;
+      check(new_frame_px == FRAME_W * FRAME_H, $sformatf(
+            "PR-05: saw %0d active pixels in the frame after the swap, expected %0d",
+            new_frame_px,
+            FRAME_W * FRAME_H
+            ));
+      check(pr05_mismatches == 0, $sformatf("PR-05: %0d pixels did not match", pr05_mismatches));
+      check(new_first_cycle > swap_cycle, "PR-05: new frame must start after the swap");
+      check(new_last_cycle - swap_cycle <= PR05_LIMIT_CLKS, $sformatf(
+            "PR-05: frame complete %0d clocks after the swap, limit %0d (16.7 ms)",
+            new_last_cycle - swap_cycle,
+            PR05_LIMIT_CLKS
+            ));
+      $display("PR-05: swap at cycle %0d; new frame first pixel +%0d, last pixel +%0d clocks",
+               swap_cycle, new_first_cycle - swap_cycle, new_last_cycle - swap_cycle);
+      $display("PR-05: last pixel %0d us after the swap at 65.000 MHz, limit %0d us",
+               (new_last_cycle - swap_cycle) * 1_000_000 / PIXEL_CLOCK_HZ, PR05_LIMIT_US);
+    end
 
     if (errors == 0) $display("PASS");
     else $display("FAIL");

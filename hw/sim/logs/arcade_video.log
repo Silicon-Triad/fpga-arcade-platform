@@ -7,11 +7,11 @@
 # dep: hw/rtl/tilemap_crop.sv sha256=2f1bb83b2286c9d9a27b2f4d86f5c497a26b48e2d7eb1f9c13a714908246a1f8
 # dep: hw/rtl/vga_controller.sv sha256=e48f86207a6c50d9b774ef639c98c6fd1f15ba12c75545c742bf4e53a192a22b
 # dep: hw/rtl/vga_timing.sv sha256=256183eae8626f037e331aa27dc8474f95c1cad5228569da70746f234342c5fe
-# dep: hw/tb/tb_arcade_video.sv sha256=50a054d7fe4c2d87448a51e29be12f0c9618e7dff66113ffcaae1903bdcaa3c2
+# dep: hw/tb/tb_arcade_video.sv sha256=67f39b3b38cc79ee730ed75782a724afde74900d94e76314f52ab5c0c2af367b
 # tool: Questa Altera Starter FPGA Edition-64 vsim 2025.2 Simulator 2025.05 May 31 2025
-# date: 2026-11-03T21:09:24Z
+# date: 2026-11-05T16:55:07Z
 Questa Altera Starter FPGA Edition-64 vlog 2025.2 Compiler 2025.05 May 31 2025
-Start time: 02:08:30 on Nov 04,2026
+Start time: 21:53:44 on Nov 05,2026
 vlog -sv -work work /home/kratos/fpga-arcade-platform/hw/rtl/arcade_regs_pkg.sv /home/kratos/fpga-arcade-platform/hw/rtl/arcade_video.sv /home/kratos/fpga-arcade-platform/hw/rtl/bridge_regs.sv /home/kratos/fpga-arcade-platform/hw/rtl/tilemap_banks.sv /home/kratos/fpga-arcade-platform/hw/rtl/tilemap_crop.sv /home/kratos/fpga-arcade-platform/hw/rtl/tile_renderer_pipeline.sv /home/kratos/fpga-arcade-platform/hw/rtl/vga_controller.sv /home/kratos/fpga-arcade-platform/hw/rtl/vga_timing.sv /home/kratos/fpga-arcade-platform/hw/tb/tb_arcade_video.sv 
 ** Note: (vlog-220) '/home/kratos/altera_lite/25.1std/questa_fse/linux_x86_64/../modelsim.ini' is used as the ini file.
 -- Compiling package arcade_regs_pkg
@@ -28,7 +28,7 @@ vlog -sv -work work /home/kratos/fpga-arcade-platform/hw/rtl/arcade_regs_pkg.sv 
 Top level modules:
 	bridge_regs
 	tb_arcade_video
-End time: 02:08:30 on Nov 04,2026, Elapsed time: 0:00:00
+End time: 21:53:44 on Nov 05,2026, Elapsed time: 0:00:00
 Errors: 0, Warnings: 0
 Reading pref.tcl
 
@@ -36,7 +36,7 @@ Reading pref.tcl
 
 # ** Note: (vsim-220) '/home/kratos/altera_lite/25.1std/questa_fse/linux_x86_64/../modelsim.ini' is used as the ini file.
 # vsim -c -work work tb_arcade_video -do "run -all; quit -f" 
-# Start time: 02:08:31 on Nov 04,2026
+# Start time: 21:53:45 on Nov 05,2026
 # ** Note: (vsim-3812) Design is being optimized...
 # ** Note: (vopt-220) '/home/kratos/altera_lite/25.1std/questa_fse/linux_x86_64/../modelsim.ini' is used as the ini file.
 # //  Questa Altera Starter FPGA Edition-64
@@ -57,9 +57,11 @@ Reading pref.tcl
 # Loading work.arcade_regs_pkg(fast)
 # Loading work.tb_arcade_video(fast)
 # run -all
+# PR-05: swap at cycle 8614725; new frame first pixel +51396, last pixel +1083267 clocks
+# PR-05: last pixel 16665 us after the swap at 65.000 MHz, limit 16700 us
 # PASS
-# ** Note: $finish    : /home/kratos/fpga-arcade-platform/hw/tb/tb_arcade_video.sv(225)
-#    Time: 12999216 ns  Iteration: 1  Instance: /tb_arcade_video
-# End time: 02:09:24 on Nov 04,2026, Elapsed time: 0:00:53
+# ** Note: $finish    : /home/kratos/fpga-arcade-platform/hw/tb/tb_arcade_video.sv(372)
+#    Time: 19404690 ns  Iteration: 1  Instance: /tb_arcade_video
+# End time: 21:55:06 on Nov 05,2026, Elapsed time: 0:01:21
 # Errors: 0, Warnings: 0
 PASS
