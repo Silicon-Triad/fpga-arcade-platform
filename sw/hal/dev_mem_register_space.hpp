@@ -25,19 +25,19 @@ struct BridgeReadiness {
 
 /// SR-HAL-09, glossary "FPGA manager": the FPGA-manager configuration state file. This kernel
 /// (3.18) uses Altera's FPGA manager driver, so the mainline /sys/class/fpga_manager/ does not
-/// exist. Measured on the DE1-SoC, 13 Nov 2026, issue #34; not an SRS value.
+/// exist. Measured on the DE1-SoC, 12 Nov 2026, issue #34; not an SRS value.
 inline constexpr std::string_view kFpgaManagerStatePath = "/sys/class/fpga/fpga0/status";
 /// SR-HAL-09, glossary "FPGA manager": its contents (trailing white space removed) when the
 /// FPGA is configured. It reads the same for U-Boot's default soc_system.rbf and for our design,
-/// so only the ID/Version check tells them apart. Measured on the DE1-SoC, 13 Nov 2026, issue
+/// so only the ID/Version check tells them apart. Measured on the DE1-SoC, 12 Nov 2026, issue
 /// #34. Any other contents mean "not configured"; no unconfigured value is assumed.
 inline constexpr std::string_view kFpgaManagerConfiguredValue = "user mode";
 
 /// SR-HAL-09, AS-02, glossary "FPGA manager": the lightweight bridge's enable file. Measured on
-/// the DE1-SoC, 13 Nov 2026, issue #34; not an SRS value.
+/// the DE1-SoC, 12 Nov 2026, issue #34; not an SRS value.
 inline constexpr std::string_view kLwBridgeEnablePath = "/sys/class/fpga-bridge/lwhps2fpga/enable";
 /// SR-HAL-09, AS-02, glossary "FPGA manager": its contents (trimmed) when the bridge is enabled.
-/// Measured on the DE1-SoC, 13 Nov 2026, issue #34.
+/// Measured on the DE1-SoC, 12 Nov 2026, issue #34.
 inline constexpr std::string_view kLwBridgeEnabledValue = "1";
 
 /// The readiness files of the board image (SR-HAL-09, AS-02).
@@ -87,6 +87,10 @@ class DevMemRegisterSpace final : public RegisterSpace {
     /// (3) open /dev/mem and mmap BRIDGE_WINDOW_SIZE bytes at BRIDGE_BASE; (4) checkFabric().
     /// On a failure after the mapping, the window is released again. Returns the first failure
     /// with its distinct code (SR-HAL-02), or kOk. If already mapped, returns kOk at once.
+    ///
+    /// noexcept, yet it builds std::string objects (sysfs text, paths): if memory runs out, the
+    /// program terminates instead of returning an error. Accepted because this runs once at
+    /// start-up, before any game tick (review of #115).
     BridgeResult open() noexcept;
 
     /// The readiness files this space checks (for describeBridgeFailure()).

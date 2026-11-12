@@ -55,3 +55,13 @@ TBL-Palette has 16 entries packed as `0x00RRGGBB`. The SRS fixes only entry 0 = 
 | 15 | (unused) | 0x000000 | spare |
 
 Status: agreed on #75; recorded 4 Nov 2026. If `kPalette` changes, update this table in the same PR.
+
+## FPGA-manager state file on the board kernel (#34, PR #115)
+
+The glossary entry "FPGA manager" gives `/sys/class/fpga_manager/fpga0/state` as an example of where SR-HAL-09 reads the configuration state. The board image (Intel UP Linux, kernel 3.18.0) uses Altera's own FPGA manager driver (`altera_fpga_manager ff706000.fpgamgr`), and the file it provides is `/sys/class/fpga/fpga0/status`. It reads `user mode` both after a fresh boot (U-Boot's default `soc_system.rbf`) and with our design loaded, so the ID/Version check of SR-HAL-09 is what tells the two apart.
+
+- **Used by the HAL:** `/sys/class/fpga/fpga0/status` = `user mode` (`kFpgaManagerStatePath`, `kFpgaManagerConfiguredValue` in `sw/hal/dev_mem_register_space.hpp`).
+- **Evidence:** board console log of 12 Nov 2026 quoted in PR #115.
+- **Not a requirement change:** SR-HAL-09 is unchanged; only the glossary's example path differs from this kernel's.
+
+Status: recorded 12 Nov 2026 by the HAL C++ owner (Muhammad); review on PR #115.

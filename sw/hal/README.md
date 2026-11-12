@@ -87,11 +87,11 @@ No step blocks, and nothing throws or crashes. `sw/app/` prints `graphics hardwa
 
 **System calls.** `BridgeSys` wraps `open`, `close`, `mmap`, `munmap` and the sysfs read, as `EvdevSys` does in `sw/input/`; `LinuxBridgeSys` calls the kernel. Tests use `sw/tests/hal/fake_bridge_sys.hpp` (fake files and a 2 MB in-memory window that records every call), so every step and error is tested on the PC: `ctest --preset pc-debug -R "DevMem|CheckFabric|DescribeBridge|BridgeOpen" --output-on-failure`.
 
-### Board environment (measured by the team on 12 and 13 Nov 2026, issue #34)
+### Board environment (measured by the team on 12 Nov 2026, issue #34)
 
 - Image: Intel FPGA University Program `DE1-SoC_UP_Linux.img`, kernel `3.18.0` (armv7l). SW10 MSEL = 01010.
 - U-Boot configures the FPGA with `soc_system.rbf` from the FAT partition on every boot, before Linux starts. Our design is loaded afterwards with `load_fpga.sh arcade_top_1024.rbf` (`dd` to `/dev/fpga0` with the bridges disabled, then re-enabled). Loading our design at boot is #39.
-- FPGA manager: Altera's own driver (`altera_fpga_manager ff706000.fpgamgr ... registered as minor 0`, `/dev/fpga0`), not the mainline FPGA manager, so the glossary's example path `/sys/class/fpga_manager/fpga0/state` does not exist. The state file is `/sys/class/fpga/fpga0/status` (measured 13 Nov 2026): `user mode` after a fresh boot (default `soc_system.rbf`) and after loading our design.
+- FPGA manager: Altera's own driver (`altera_fpga_manager ff706000.fpgamgr ... registered as minor 0`, `/dev/fpga0`), not the mainline FPGA manager, so the glossary's example path `/sys/class/fpga_manager/fpga0/state` does not exist. The state file is `/sys/class/fpga/fpga0/status` (measured 12 Nov 2026): `user mode` after a fresh boot (default `soc_system.rbf`) and after loading our design.
 - Bridges: `/sys/class/fpga-bridge/` holds `fpga2hps`, `hps2fpga` and `lwhps2fpga`; each `enable` read `1` with our design loaded.
 - Over `/dev/mem` at `0xFF200000` with our design loaded: ID/Version `0xA2CADE01`, Status `0x00000003`.
 
