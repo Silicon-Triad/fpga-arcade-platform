@@ -12,6 +12,7 @@ Hardware Access Layer: bridge mapping, shadow tilemap, present(), audio register
 | `register_map.hpp` | FROZEN register map (offsets, bits, sizes) | §3.1.4 |
 | `register_space.hpp` | `RegisterSpace`: the register-access seam (read8/write8/read32/write32, writeBlock8) | §3.1.4 |
 | `tilemap_hal.hpp/.cpp` | `TilemapHal`: shadow tilemap, present(), swap poll, frame state | SR-HAL-03, 04, 05, 06, 08 |
+| `bridge_benchmark.hpp/.cpp`, `bridge_benchmark_main.cpp` | `bridge_benchmark` (#38): LW-bridge write throughput, verdict against 737,280 B/s | §3.1.4 data rate, PR-04 |
 | `hal_lifecycle.hpp/.cpp` | `HalLifecycle`: start-up load (patterns, palette, Display Enable) and shutdown() | SR-HAL-13, SR-HAL-07 |
 | `dev_mem_register_space.hpp/.cpp` | `DevMemRegisterSpace`: the `/dev/mem` mapping of the bridge window, the readiness check and its error codes | SR-HAL-01, 02, 07, 09, AS-01 |
 | `bridge_sys.hpp`, `linux_bridge_sys.cpp` | `BridgeSys`: the Linux calls it makes (sysfs read, open, mmap, munmap, close), injectable for tests | SR-HAL-01, SR-HAL-09 |
@@ -26,6 +27,19 @@ Every bridge access goes through `RegisterSpace`, addressed by byte offset in th
 - Tests use the in-memory mock in `sw/tests/hal/mock_register_space.hpp`, which records every access in order.
 
 The poll clock is injected as a `MonotonicClock` (`SteadyClock` on the board, a fake clock in tests).
+
+## `bridge_benchmark` (#38)
+
+Board-only test program. It maps the bridge window from `/dev/mem` (SR-HAL-01), checks ID / Version and Status FPGA ready first and writes nothing if either is wrong (the SR-HAL-09 rule), then writes the **back bank** (never the front bank, Control or Swap Request) `--passes` times with 8-bit and 32-bit stores. Each pass ends with a barrier and an ID read, so the time is for writes that reached the FPGA. It prints bytes/s and ms per full bank for each width, with a verdict against the §3.1.4 worst case 12,288 × 60 = 737,280 B/s. Exit status: 0 all widths pass, 1 bad arguments, 2 mapping failed, 3 hardware not ready (or not an ARM build), 4 below target.
+
+Build it static for the board (the board image's C library is older than the cross toolchain's), then check that `file` says `statically linked` and a minimum kernel no newer than the board's:
+
+```bash
+cmake --preset de1soc-release -DCMAKE_EXE_LINKER_FLAGS=-static && cmake --build --preset de1soc-release
+file build/de1soc-release/sw/hal/bridge_benchmark
+```
+
+On the board, as root, only after arcade_top is loaded and the bridge enabled: `./bridge_benchmark` (options: `--passes N`, `--width 8|32|both`, `--value N`, `--help`). The 8-bit figure is the path `RegisterSpace::writeBlock8()` takes today; the 32-bit figure shows what #34 gains if its mmap implementation overrides `writeBlock8()` with word stores.
 
 ## Design choices the SRS leaves open (#35, not SRS values)
 
