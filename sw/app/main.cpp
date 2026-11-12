@@ -5,8 +5,13 @@
 #include <string_view>
 #include <utility>
 
+#include "app/fpga_start.hpp"
 #include "app/options.hpp"
 #include "app/startup.hpp"
+#include "hal/tilemap_hal.hpp"
+#include "input/evdev_sys.hpp"
+#include "input/input_manager.hpp"
+#include "input/key_bindings.hpp"
 
 #ifdef ARCADE_HAS_SDL
 #include "app/binding_lookup.hpp"
@@ -20,7 +25,9 @@ using arcade::BackendKind;
 using arcade::BackendStart;
 
 constexpr int kExitUsage = 2;
-constexpr std::string_view kStepNoFpga = "FPGA backend is not available yet";
+// SF-02: the step #34 adds (SR-HAL-01, SR-HAL-02, SR-HAL-09).
+constexpr std::string_view kStepNoBridge =
+    "map the lightweight bridge (/dev/mem): not implemented (#34)";
 
 // SR-FW-14: the handler sets this; the game loop acts on it between ticks. The one global a
 // handler needs: it can reach nothing else (async-signal-safe).
@@ -44,18 +51,9 @@ constexpr std::string_view kStepNoSdl = "SDL2 backend is not in this build";
 constexpr BackendKind kDefaultBackend = BackendKind::Fpga;
 #endif
 
-BackendStart startBackend(const arcade::Options& options) {
-    BackendStart start;
-    if (options.backend == BackendKind::Fpga) {
-        start.failedStep = kStepNoFpga;  // SF-02: until the FPGA backend exists (#37)
-        return start;
-    }
-#ifdef ARCADE_HAS_SDL
-    // Static: BindingLookup keeps a reference to `bindings`, and the backend to `lookup` and
-    // `textLayout`, until the program ends.
-    static arcade::KeyBindings bindings;
-    static const arcade::BindingLookup lookup(bindings);
-    static const arcade::FontTextLayout textLayout;
+// TBL-KeyBinding with keymap.conf applied (SC-05).
+arcade::KeyBindings loadKeyBindings() {
+    arcade::KeyBindings bindings;
     // SC-05: ignored lines keep their defaults; say so, so that a typo is not silent.
     const arcade::KeymapLoadResult keymap = bindings.loadOverrideFile();
     if (keymap.ignored > 0) {
@@ -64,6 +62,32 @@ BackendStart startBackend(const arcade::Options& options) {
                            arcade::KeyBindings::kKeymapFile.data(), keymap.ignored,
                            keymap.firstIgnoredLine);
     }
+    return bindings;
+}
+
+// Loaded once, on first use. Static: the backends keep a reference to it until the program ends.
+const arcade::KeyBindings& keyBindings() {
+    static const arcade::KeyBindings bindings = loadKeyBindings();
+    return bindings;
+}
+
+// The mapped and checked bridge window (SR-HAL-01, SR-HAL-02, SR-HAL-09). #34 replaces this body
+// with its /dev/mem RegisterSpace and readiness check; nothing else here changes.
+arcade::BridgeOpen openBridge() { return arcade::BridgeOpen{nullptr, kStepNoBridge}; }
+
+BackendStart startBackend(const arcade::Options& options) {
+    BackendStart start;
+    if (options.backend == BackendKind::Fpga) {
+        // Static: the backend keeps references to these until the program ends.
+        static arcade::hal::SteadyClock clock;
+        static arcade::LinuxEvdevSys evdev;
+        static arcade::InputManager input(evdev);
+        return arcade::startFpgaBackend(openBridge(), clock, input, keyBindings());
+    }
+#ifdef ARCADE_HAS_SDL
+    // Static: the backend keeps references to `lookup` and `textLayout` until the program ends.
+    static const arcade::BindingLookup lookup(keyBindings());
+    static const arcade::FontTextLayout textLayout;
     std::unique_ptr<arcade::SdlBackend> sdl = arcade::SdlBackend::open(lookup, &textLayout);
     if (sdl == nullptr) {
         start.failedStep = kStepOpenSdl;

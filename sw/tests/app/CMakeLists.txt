@@ -6,3 +6,5 @@ if(ARCADE_BACKEND_SDL)
     target_link_libraries(app_shutdown_test PRIVATE arcade_backend_sdl)
     arcade_add_test(binding_lookup_test SOURCES binding_lookup_test.cpp LIBS arcade_input)
 endif()
+arcade_add_test(fpga_start_test SOURCES fpga_start_test.cpp
+    LIBS arcade_startup arcade_engine arcade_assets)
