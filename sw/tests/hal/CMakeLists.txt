@@ -1,3 +1,4 @@
 arcade_add_test(register_map_test SOURCES register_map_test.cpp LIBS arcade_hal)
 arcade_add_test(tilemap_hal_test SOURCES tilemap_hal_test.cpp LIBS arcade_hal)
 arcade_add_test(hal_lifecycle_test SOURCES hal_lifecycle_test.cpp LIBS arcade_hal)
+arcade_add_test(dev_mem_register_space_test SOURCES dev_mem_register_space_test.cpp LIBS arcade_hal)

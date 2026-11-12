@@ -2,9 +2,11 @@
 #include <csignal>
 #include <cstdio>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <utility>
 
+#include "app/bridge_open.hpp"
 #include "app/fpga_start.hpp"
 #include "app/options.hpp"
 #include "app/startup.hpp"
@@ -25,9 +27,6 @@ using arcade::BackendKind;
 using arcade::BackendStart;
 
 constexpr int kExitUsage = 2;
-// SF-02: the step #34 adds (SR-HAL-01, SR-HAL-02, SR-HAL-09).
-constexpr std::string_view kStepNoBridge =
-    "map the lightweight bridge (/dev/mem): not implemented (#34)";
 
 // SR-FW-14: the handler sets this; the game loop acts on it between ticks. The one global a
 // handler needs: it can reach nothing else (async-signal-safe).
@@ -73,7 +72,13 @@ const arcade::KeyBindings& keyBindings() {
 
 // The mapped and checked bridge window (SR-HAL-01, SR-HAL-02, SR-HAL-09). #34 replaces this body
 // with its /dev/mem RegisterSpace and readiness check; nothing else here changes.
-arcade::BridgeOpen openBridge() { return arcade::BridgeOpen{nullptr, kStepNoBridge}; }
+arcade::BridgeOpen openBridge() {
+    // Static: the backend keeps a reference to the space until the program ends.
+    static arcade::hal::LinuxBridgeSys sys;
+    static arcade::hal::DevMemRegisterSpace space(sys, arcade::hal::kBoardReadiness);
+    static std::string failedStep;  // SF-02: the failed step, printed by runArcade()
+    return arcade::openCheckedBridge(space, failedStep);
+}
 
 BackendStart startBackend(const arcade::Options& options) {
     BackendStart start;

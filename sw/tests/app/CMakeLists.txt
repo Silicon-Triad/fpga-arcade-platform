@@ -8,3 +8,5 @@ if(ARCADE_BACKEND_SDL)
 endif()
 arcade_add_test(fpga_start_test SOURCES fpga_start_test.cpp
     LIBS arcade_startup arcade_engine arcade_assets)
+arcade_add_test(bridge_open_test SOURCES bridge_open_test.cpp
+    LIBS arcade_startup arcade_engine arcade_assets)
