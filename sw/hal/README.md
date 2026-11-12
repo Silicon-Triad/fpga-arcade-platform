@@ -14,12 +14,14 @@ Hardware Access Layer: bridge mapping, shadow tilemap, present(), audio register
 | `tilemap_hal.hpp/.cpp` | `TilemapHal`: shadow tilemap, present(), swap poll, frame state | SR-HAL-03, 04, 05, 06, 08 |
 | `bridge_benchmark.hpp/.cpp`, `bridge_benchmark_main.cpp` | `bridge_benchmark` (#38): LW-bridge write throughput, verdict against 737,280 B/s | §3.1.4 data rate, PR-04 |
 | `hal_lifecycle.hpp/.cpp` | `HalLifecycle`: start-up load (patterns, palette, Display Enable) and shutdown() | SR-HAL-13, SR-HAL-07 |
+| `dev_mem_register_space.hpp/.cpp` | `DevMemRegisterSpace`: the `/dev/mem` mapping of the bridge window, the readiness check and its error codes | SR-HAL-01, 02, 07, 09, AS-01 |
+| `bridge_sys.hpp`, `linux_bridge_sys.cpp` | `BridgeSys`: the Linux calls it makes (sysfs read, open, mmap, munmap, close), injectable for tests | SR-HAL-01, SR-HAL-09 |
 
 ## The register-access seam
 
 Every bridge access goes through `RegisterSpace`, addressed by byte offset in the bridge window (the `kOffset*` constants). The HAL takes it by reference and never knows where the bytes go.
 
-- **#34** adds one implementation: the `/dev/mem` mmap of the window (SR-HAL-01, 02, 09), with volatile loads and stores. Nothing in `TilemapHal` changes.
+- **#34** adds one implementation, `DevMemRegisterSpace`: the `/dev/mem` mmap of the window (SR-HAL-01, 02, 09), with volatile loads and stores. Nothing in `TilemapHal` changes. See "Bridge mapping and readiness check" below.
 - **#36** (tile patterns, palette, Display Enable, shutdown) writes through the same `write8`/`writeBlock8`/`write32`.
 - **#44** (Tone Frequency, Tone Duration, Audio Control) uses `write32`/`read32`.
 - Tests use the in-memory mock in `sw/tests/hal/mock_register_space.hpp`, which records every access in order.
@@ -68,5 +70,54 @@ On the board, as root, only after arcade_top is loaded and the bridge enabled: `
 - **HAL-native input types** (`HalTileSet`, `HalPalette`) sized from `register_map.hpp`, so `sw/hal/` does not depend on `arcade/types.hpp`; #37 converts (the layouts are the same).
 - **No tilemap reset (Control bit 1) during load.** The SRS only says to set Display Enable after the load; the first `present()` writes every cell of both banks anyway (#35).
 - **Palette validated before any write**, so a rejected load leaves the bridge untouched.
+
+## Bridge mapping and readiness check (#34)
+
+`DevMemRegisterSpace::open()` runs these steps in order and stops at the first failure (SR-HAL-09, SR-HAL-01). Steps 1 and 2 only read sysfs files: **nothing opens `/dev/mem` or touches the bridge until both pass**, because an access while the fabric is unconfigured or the bridge is disabled can hang the HPS (SR-HAL-09 rationale).
+
+1. **FPGA manager says configured** (SR-HAL-09): `/sys/class/fpga/fpga0/status` reads `user mode`. Any other contents give `kFpgaNotConfigured`; no "unconfigured" value is assumed (none was measured).
+2. **Lightweight bridge enabled**: `/sys/class/fpga-bridge/lwhps2fpga/enable` reads `1`. This is our design choice supporting AS-02 ("the lightweight bridge is enabled before the game process starts"); SR-HAL-09 does not name it.
+3. **Map the window** (SR-HAL-01, AS-01): `open("/dev/mem", O_RDWR | O_SYNC)`, then `mmap(BRIDGE_WINDOW_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, BRIDGE_BASE)`, both from `register_map.hpp`. `O_SYNC` gives an uncached mapping, as in the board-tested `bridge_benchmark` (#38). Needs root (`/dev/mem` is `crw-r----- root kmem`).
+4. **`checkFabric()`** (SR-HAL-09): read ID/Version (`kOffsetIdVersion`) and require `HAL_ID_MAGIC`; only then read Status and require bit 1, FPGA ready. On this board a fresh boot loads U-Boot's default `soc_system.rbf`, and `/sys/class/fpga/fpga0/status` then reads `user mode`, **the same as with our design loaded**. So step 1 cannot tell them apart: the ID check is the only step that catches "configured, but not our design", and a fresh-boot run fails there. Requiring FPGA ready is **our choice** (§3.1.4 Status bit 1; #114 checked it too): it catches our design held in reset (for example the pixel PLL not locked), which SR-HAL-09 does not name. Nothing else is read, and the tilemap, pattern and palette regions are never touched by the check.
+
+If step 4 fails, the window is released again (munmap and close) before `open()` returns. Sysfs values are compared after removing trailing white space (sysfs ends them with a newline); anything else must match exactly.
+
+**Error codes** (`BridgeStatus`, SR-HAL-02), each with its own console message from `describeBridgeFailure()`:
+
+| Code | Meaning | Extra in `BridgeResult` |
+|---|---|---|
+| `kFpgaStateUnreadable` | the FPGA-manager state file cannot be read | `sysError` (errno) |
+| `kFpgaNotConfigured` | it does not read the configured value | `text` (what it read) |
+| `kBridgeStateUnreadable` | the bridge enable file cannot be read | `sysError` |
+| `kBridgeNotEnabled` | it does not read `1` | `text` |
+| `kDevMemOpenFailed` | `open("/dev/mem")` failed, e.g. `EACCES` (not root) or `ENOENT` | `sysError` |
+| `kMmapFailed` | `mmap()` of the window failed | `sysError` |
+| `kIdMismatch` | ID/Version is not `0xA2CADE01`: not our design | `value` (what it read) |
+| `kFpgaNotReady` | Status bit 1 is clear | `value` (Status) |
+
+No step blocks, and nothing throws or crashes. `sw/app/` prints `graphics hardware not ready: <step>` and exits with status 1 (SF-02).
+
+**Access and release.** Until `open()` succeeds, and after `release()`, `read8`/`read32` return 0 and `write8`/`write32` are dropped, so nothing ever goes through an unmapped pointer. Accesses outside the 2 MB window or not aligned to their width are dropped too. `release()` (SR-HAL-07) forgets the pointer, then munmaps the window and closes `/dev/mem`, once; a second call, or the destructor after it, does nothing. It writes no register, so Display Enable stays set. This is what keeps a late `TilemapHal::present()` after `HalLifecycle::shutdown()` off the bridge (review of #36).
+
+**System calls.** `BridgeSys` wraps `open`, `close`, `mmap`, `munmap` and the sysfs read, as `EvdevSys` does in `sw/input/`; `LinuxBridgeSys` calls the kernel. Tests use `sw/tests/hal/fake_bridge_sys.hpp` (fake files and a 2 MB in-memory window that records every call), so every step and error is tested on the PC: `ctest --preset pc-debug -R "DevMem|CheckFabric|DescribeBridge|BridgeOpen" --output-on-failure`.
+
+### Board environment (measured by the team on 12 Nov 2026, issue #34)
+
+- Image: Intel FPGA University Program `DE1-SoC_UP_Linux.img`, kernel `3.18.0` (armv7l). SW10 MSEL = 01010.
+- U-Boot configures the FPGA with `soc_system.rbf` from the FAT partition on every boot, before Linux starts. Our design is loaded afterwards with `load_fpga.sh arcade_top_1024.rbf` (`dd` to `/dev/fpga0` with the bridges disabled, then re-enabled). Loading our design at boot is #39.
+- FPGA manager: Altera's own driver (`altera_fpga_manager ff706000.fpgamgr ... registered as minor 0`, `/dev/fpga0`), not the mainline FPGA manager, so the glossary's example path `/sys/class/fpga_manager/fpga0/state` does not exist. The state file is `/sys/class/fpga/fpga0/status` (measured 12 Nov 2026): `user mode` after a fresh boot (default `soc_system.rbf`) and after loading our design.
+- Bridges: `/sys/class/fpga-bridge/` holds `fpga2hps`, `hps2fpga` and `lwhps2fpga`; each `enable` read `1` with our design loaded.
+- Over `/dev/mem` at `0xFF200000` with our design loaded: ID/Version `0xA2CADE01`, Status `0x00000003`.
+
+### Board build
+
+The board's C library is older than the cross toolchain's, so build static, then check that `file` says `statically linked`:
+
+```bash
+cmake --preset de1soc-release -DCMAKE_EXE_LINKER_FLAGS=-static && cmake --build --preset de1soc-release
+file build/de1soc-release/sw/app/arcade
+```
+
+Run as root on the board: `./arcade --backend=fpga`.
 
 Rules: see [`AGENTS.md`](/AGENTS.md).

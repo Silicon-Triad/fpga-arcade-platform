@@ -56,6 +56,8 @@ class MockRegisterSpace final : public RegisterSpace {
             v = status;
         } else if (offset == kOffsetFrameCounter) {
             v = frameCounter;
+        } else if (offset == kOffsetIdVersion) {
+            v = idVersion;
         }
         log.push_back({Access::Kind::kRead32, offset, v});
         return v;
@@ -82,7 +84,8 @@ class MockRegisterSpace final : public RegisterSpace {
     std::uint32_t front = 0;
     std::uint32_t status = 0;
     std::uint32_t frameCounter = 0;
-    std::uint32_t control = 0;  // Control Register (read-modify-write, SR-HAL-13)
+    std::uint32_t idVersion = 0;  // ID/Version (SR-HAL-09), served by read32
+    std::uint32_t control = 0;    // Control Register (read-modify-write, SR-HAL-13)
     int releaseCalls = 0;
     int accessesAfterRelease = 0;
     int statusReads = 0;
