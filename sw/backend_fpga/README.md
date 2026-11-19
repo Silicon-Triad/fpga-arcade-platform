@@ -25,7 +25,7 @@ Bridge access happens only in `present()`, `loadTiles()`, `frameCount()` and `sh
 ## How #34 and #44 plug in
 
 - **#34 (bridge mapping, SR-HAL-01, 02, 09):** implement the `/dev/mem` `RegisterSpace` and the readiness check, then replace the body of `openBridge()` in `sw/app/main.cpp` to return it in a `BridgeOpen`, or the failed step. `startFpgaBackend()` (`sw/app/fpga_start.cpp`) already builds the backend on it. Until then, `arcade --backend=fpga` exits with `graphics hardware not ready: map the lightweight bridge (/dev/mem): not implemented (#34)` (SF-02).
-- **#44 (sound, SR-HAL-10 to 12):** implement `FpgaSound` (`play`, `setMute`, `tick`) over the Tone and Audio registers and pass it as the last constructor argument in `startFpgaBackend()`. `tick()` is called once per `present()`, before the tilemap is written, so the driver can start the next note in the tick in which the previous one ends (SR-HAL-11). `FpgaBackend` itself does not change.
+- **#44 (sound, SR-HAL-11, SR-HAL-12):** done. `startFpgaBackend()` (`sw/app/`) passes a `ToneSound` adapter over `hal::ToneSequencer` as the last constructor argument; see `sw/hal/README.md`. `tick()` is called once per `present()`, before the tilemap is written. `FpgaBackend` itself did not change.
 
 ## Design choices (made in #37; not SRS values)
 

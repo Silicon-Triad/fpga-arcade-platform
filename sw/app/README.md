@@ -8,7 +8,7 @@
 ## Backends (SR-FW-05)
 
 - `--backend=sdl` (the default on the PC): `SdlBackend` in one 1024 × 768 window.
-- `--backend=fpga` (the default in the board build, which has no SDL2): `startFpgaBackend()` takes the bridge from `openBridge()`, starts the Input Manager and builds `FpgaBackend` (`sw/backend_fpga/`). Destroying it at the end releases the bridge without clearing Display Enable (SR-HAL-07).
+- `--backend=fpga` (the default in the board build, which has no SDL2): `startFpgaBackend()` takes the bridge from `openBridge()`, starts the Input Manager and builds `FpgaBackend` (`sw/backend_fpga/`) with the sound driver (`ToneSound` over `hal::ToneSequencer`, #44, SR-HAL-11, SR-HAL-12), kept in `BackendStart::keepAlive` so it outlives the backend. Destroying it at the end releases the bridge without clearing Display Enable (SR-HAL-07).
 - `openBridge()` (#34) opens a `hal::DevMemRegisterSpace` on the board's readiness files through `openCheckedBridge()` (`bridge_open.*`): FPGA manager configured, lightweight bridge enabled, then the `/dev/mem` mapping and the ID/Version and FPGA-ready checks (`sw/hal/README.md`, SR-HAL-01, SR-HAL-09). If a step fails, `--backend=fpga` prints `graphics hardware not ready: <step>` and exits with status 1 at once (SF-02), for example `graphics hardware not ready: check ID/Version register: reads 0x00000000, expected 0xA2CADE01 (our FPGA design is not loaded)`. Run it as root (AS-01).
 - Both backends use the same `KeyBindings`, with `/etc/arcade/keymap.conf` applied once (SC-05).
 
