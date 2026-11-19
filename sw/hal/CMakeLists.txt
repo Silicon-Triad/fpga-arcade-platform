@@ -14,3 +14,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(bridge_benchmark bridge_benchmark_main.cpp)
     target_link_libraries(bridge_benchmark PRIVATE arcade_bridge_bench arcade_warnings)
 endif()
+
+# VGA frame-rate measurement (#46; PR-01, SR-VGA-10): Frame Counter against CLOCK_MONOTONIC.
+# The logic is a library so sw/tests/hal/ can test it; the program needs /dev/mem, Linux only.
+add_library(arcade_frame_rate frame_rate.cpp)
+target_include_directories(arcade_frame_rate PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
+target_link_libraries(arcade_frame_rate PUBLIC arcade_hal PRIVATE arcade_warnings)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(frame_rate frame_rate_main.cpp)
+    target_link_libraries(frame_rate PRIVATE arcade_frame_rate arcade_hal arcade_warnings)
+endif()
