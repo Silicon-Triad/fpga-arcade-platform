@@ -20,12 +20,23 @@ constexpr bool tableFitsTheRegisters() noexcept {
 }
 static_assert(tableFitsTheRegisters(), "TBL-SoundEffect: SR-AUD-04, SR-AUD-05, SR-HAL-11");
 
+/// Bit position of `bit` in Audio Control, from register_map.hpp (§3.1.4).
+constexpr unsigned bitPosition(AudioControlBit bit) noexcept {
+    switch (bit) {
+        case AudioControlBit::kEnable:
+            return kBitAudioEnable;  // SR-HAL-10
+        case AudioControlBit::kMute:
+            return kBitAudioMute;  // SR-HAL-12
+    }
+    return kBitAudioMute;  // unreachable: every enumerator is handled above
+}
+
 }  // namespace
 
 void setAudioControlBit(RegisterSpace& regs, AudioControlBit bit, bool on) noexcept {
     // §3.1.4: Audio Control is R/W, so the hardware register is the only copy of bit 0 (#43)
     // and bit 1 (#44); no shadow to keep in step.
-    const std::uint32_t mask = 1U << static_cast<unsigned>(bit);  // bit 0 or 1 only
+    const std::uint32_t mask = 1U << bitPosition(bit);  // bit 0 or 1 only
     const std::uint32_t value = regs.read32(kOffsetAudioControl);
     regs.write32(kOffsetAudioControl, on ? (value | mask) : (value & ~mask));
 }

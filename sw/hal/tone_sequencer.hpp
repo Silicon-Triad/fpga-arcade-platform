@@ -4,17 +4,17 @@
 #include <cstdint>
 
 #include "arcade/types.hpp"
-#include "hal/register_map.hpp"
 #include "hal/register_space.hpp"
 
 namespace arcade::hal {
 
-/// The two defined bits of the Audio Control Register (§3.1.4), from register_map.hpp. Only
-/// these can be passed to setAudioControlBit(), so no other bit (reserved, or >= 32) is
-/// ever written.
+/// The two defined bits of the Audio Control Register (§3.1.4). Only these can be passed to
+/// setAudioControlBit(), so no other bit (reserved, or >= 32) is ever written. The bit
+/// positions are mapped in tone_sequencer.cpp from register_map.hpp, which this header does
+/// not include, so only sw/hal/ sees the register map (QA-01, R-4.1.9).
 enum class AudioControlBit : std::uint8_t {
-    kEnable = kBitAudioEnable,  ///< Bit 0, audio enable: set by #43 after codec set-up (SR-HAL-10).
-    kMute = kBitAudioMute,      ///< Bit 1, mute: written by setMute() (SR-HAL-12).
+    kEnable,  ///< Audio enable (kBitAudioEnable): set by #43 after codec set-up (SR-HAL-10).
+    kMute,    ///< Mute (kBitAudioMute): written by setMute() (SR-HAL-12).
 };
 
 /// Sets or clears one bit of the Audio Control Register by read-modify-write (§3.1.4: R/W),
