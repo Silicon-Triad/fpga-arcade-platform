@@ -125,8 +125,8 @@ struct CodecResult {
 ///     stopping at the first write that is not acknowledged;
 /// (4) close the device and drive HPS_I2C_CONTROL low again (the codec keeps its registers;
 ///     the manual's §6.4 demo does the same), then unexport it;
-/// (5) only if every write was acknowledged, set Audio Control bit 0 (audio enable) through
-///     `regs`, keeping the other bits as read (mute, SR-HAL-12, belongs to #44).
+/// (5) only if every write was acknowledged, set audio enable with setAudioControlBit()
+///     (#44's single Audio Control path), keeping the other bits as read (mute, SR-HAL-12).
 /// No bridge access happens on any failure, so the Tone Generator stays silent (SR-AUD-09).
 /// Needs root (sysfs GPIO export and /dev/i2c-0 are root-only on the board): call it before the
 /// program drops privileges (SC-01).

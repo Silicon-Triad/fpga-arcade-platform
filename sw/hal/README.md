@@ -15,6 +15,7 @@ Hardware Access Layer: bridge mapping, shadow tilemap, present(), audio register
 | `bridge_benchmark.hpp/.cpp`, `bridge_benchmark_main.cpp` | `bridge_benchmark` (#38): LW-bridge write throughput, verdict against 737,280 B/s | §3.1.4 data rate, PR-04 |
 | `hal_lifecycle.hpp/.cpp` | `HalLifecycle`: start-up load (patterns, palette, Display Enable) and shutdown() | SR-HAL-13, SR-HAL-07 |
 | `dev_mem_register_space.hpp/.cpp` | `DevMemRegisterSpace`: the `/dev/mem` mapping of the bridge window, the readiness check and its error codes | SR-HAL-01, 02, 07, 09, AS-01 |
+| `tone_sequencer.hpp/.cpp` | `ToneSequencer`: TBL-SoundEffect notes through Tone Frequency / Tone Duration, the mute bit; `setAudioControlBit()` | SR-HAL-11, SR-HAL-12 (path for SR-HAL-10) |
 | `codec_config.hpp/.cpp`, `codec_sys.hpp`, `linux_codec_sys.cpp`, `codec_setup_main.cpp` | `configureCodec()` (#43): HPS_I2C_CONTROL, WM8731 set-up over `/dev/i2c-0`, Audio Enable; `codec_setup` board tool | SR-HAL-10, CON-12, SR-AUD-09 |
 | `bridge_sys.hpp`, `linux_bridge_sys.cpp` | `BridgeSys`: the Linux calls it makes (sysfs read, open, mmap, munmap, close), injectable for tests | SR-HAL-01, SR-HAL-09 |
 
@@ -24,7 +25,7 @@ Every bridge access goes through `RegisterSpace`, addressed by byte offset in th
 
 - **#34** adds one implementation, `DevMemRegisterSpace`: the `/dev/mem` mmap of the window (SR-HAL-01, 02, 09), with volatile loads and stores. Nothing in `TilemapHal` changes. See "Bridge mapping and readiness check" below.
 - **#36** (tile patterns, palette, Display Enable, shutdown) writes through the same `write8`/`writeBlock8`/`write32`.
-- **#44** (Tone Frequency, Tone Duration, Audio Control) uses `write32`/`read32`.
+- **#44** (Tone Frequency, Tone Duration, Audio Control) uses `write32`/`read32`. See "Sound sequencer and mute" below.
 - Tests use the in-memory mock in `sw/tests/hal/mock_register_space.hpp`, which records every access in order.
 
 The poll clock is injected as a `MonotonicClock` (`SteadyClock` on the board, a fake clock in tests).
@@ -121,6 +122,28 @@ file build/de1soc-release/sw/app/arcade
 
 Run as root on the board: `./arcade --backend=fpga`.
 
+## Sound sequencer and mute (#44)
+
+`ToneSequencer` (SR-HAL-11, SR-HAL-12) works on one `RegisterSpace&`. It is a HAL class, not an `FpgaSound`: the HAL may not depend on `sw/backend_fpga/` (QA-01), so `sw/app/fpga_start.cpp` wraps it in a three-line adapter (`ToneSound`) and passes that to `FpgaBackend` as its last constructor argument.
+
+- **play(effectId)** finds the effect's rows in `kSoundEffectTable` (`arcade/tables.hpp`; values never copied) and writes the first note at once: **Tone Frequency first, then Tone Duration**, because the Tone Duration write pulses `tone_start` (`hw/rtl/bridge_regs.sv` A6), which must see the new frequency. It replaces any effect still playing (one voice, CON-13). An effect id with no rows writes nothing and leaves the current effect playing.
+- **Timing rule.** `tick()` is called once per `present()`. `play()` is called during a tick's game update, before that tick's `present()`, so that tick's `tick()` is not counted. A note of n = `msToTicks(dur_ms)` ticks started in tick T ends in tick T + n, and the next note is written by the `tick()` of tick T + n. Nothing is written in the ticks between notes or after the last note. A compile-time check makes sure every table row fits SR-AUD-04/05 and lasts at least one tick.
+- **Mute does not stop the sequencer.** Notes keep being written while muted; the Tone Generator outputs 0 while the mute bit is 1 (SR-AUD-08), so unmuting mid-effect resumes the effect where it would be anyway.
+- Fixed-size state (two row indexes, a tick counter, a flag), no heap, no blocking, no exceptions.
+
+### Audio Control: read-modify-write, one path for #43 and #44
+
+Audio Control holds bit 0, audio enable (set by #43 after codec set-up, SR-HAL-10), and bit 1, mute (SR-HAL-12). Every access goes through `setAudioControlBit(regs, AudioControlBit, on)` (an enum of only `kEnable` and `kMute`, mapped to `kBitAudioEnable` and `kBitAudioMute` inside `tone_sequencer.cpp`, so no other bit can be written and the header does not expose `register_map.hpp` to `sw/app/`): one `read32`, then one `write32` with only that bit changed and every other bit as read. `setMute()` calls it with `AudioControlBit::kMute` only, so #44 never sets or clears the enable bit.
+
+Why read-modify-write and not a shadow: §3.1.4 says Audio Control is R/W, and `bridge_regs.sv` reads back the stored register, so the hardware is the single copy of both bits. A shadow would have to be shared between `ToneSequencer` and #43's codec code and kept in step; with read-modify-write they need no shared object. (Control, by contrast, is written without a read, see "Lifecycle", because its bit 1 may not read back as written; Audio Control has no such bit.) The cost is one bridge read per mute toggle, which happens only on a key press.
+
+**For #43:** after the codec acknowledges, call `setAudioControlBit(regs, AudioControlBit::kEnable, true)` on the same `RegisterSpace`. It leaves the mute bit as it is.
+
+**Layering.** `arcade_hal` links `arcade_api` PUBLIC for `EffectId` (`arcade/types.hpp`, included by `tone_sequencer.hpp`) and `kSoundEffectTable`/`msToTicks` (`arcade/tables.hpp`, in the .cpp only). `arcade_api` is an INTERFACE library with only an include directory: headers, constants and table data, no code from the API layer. PUBLIC is needed because the public header includes `arcade/types.hpp`.
+
+**Read-back assumption.** Read-modify-write relies on Audio Control reading back what was written (§3.1.4 R/W; `bridge_regs.sv` returns `audio_q`). A `tb_bridge_regs` check for that is a follow-up in Mujtaba's area.
+
+Tests: `ctest --preset pc-debug -R "ToneSequencer|FpgaStartTest" --output-on-failure`.
 ## Codec configuration (#43)
 
 `configureCodec(sys, regs, paths)` (SR-HAL-10), in this order:
@@ -129,7 +152,7 @@ Run as root on the board: `./arcade --backend=fpga`.
 2. **Hand the bus to the HPS:** export the line (already exported, `EBUSY`, is fine), `direction` = `out`, `value` = `1`. Failure: `kGpioSetupFailed`.
 3. **Configure the WM8731:** open `/dev/i2c-0`, `ioctl(I2C_SLAVE, 0x1A)`, then the seven writes of `kCodecSetup` (below), each one 2-byte `write()`. Stops at the first write without ACK: `kCodecNoAck` names the register. On the board a missing ACK fails in 4 ms, so nothing can hang.
 4. **Give the bus back:** close the device, `value` = `0`, unexport (best effort). The codec keeps its registers; the manual's §6.4 demo does the same.
-5. **Only if every write was acknowledged:** read Audio Control and write it back with bit 0 (audio enable) set, keeping the mute bit (#44). On any failure the bridge is not touched, so the Tone Generator stays silent (SR-AUD-09).
+5. **Only if every write was acknowledged:** `setAudioControlBit(regs, AudioControlBit::kEnable, true)` (#44's single Audio Control path: one read, one write, the mute bit kept). On any failure the bridge is not touched, so the Tone Generator stays silent (SR-AUD-09).
 
 Needs **root** (`/sys/class/gpio/export` is root-only, `/dev/i2c-0` is `root:i2c 0660`), so it runs before the program drops privileges (SC-01). `describeCodecFailure()` gives one console line per error code.
 

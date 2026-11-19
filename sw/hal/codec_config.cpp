@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "hal/register_map.hpp"
+#include "hal/tone_sequencer.hpp"
 
 namespace arcade::hal {
 namespace {
@@ -159,8 +159,8 @@ CodecResult configureCodec(CodecSys& sys, RegisterSpace& regs, const CodecPaths&
     }
 
     // (5) SR-HAL-10, SR-AUD-09: only now let the Tone Generator play; keep the mute bit.
-    const std::uint32_t audio = regs.read32(kOffsetAudioControl);
-    regs.write32(kOffsetAudioControl, audio | (1U << kBitAudioEnable));
+    // Through the single Audio Control access path (#44): one read32, one write32, mute kept.
+    setAudioControlBit(regs, AudioControlBit::kEnable, true);
     return result;
 }
 
