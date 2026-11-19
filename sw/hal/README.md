@@ -15,6 +15,7 @@ Hardware Access Layer: bridge mapping, shadow tilemap, present(), audio register
 | `bridge_benchmark.hpp/.cpp`, `bridge_benchmark_main.cpp` | `bridge_benchmark` (#38): LW-bridge write throughput, verdict against 737,280 B/s | §3.1.4 data rate, PR-04 |
 | `hal_lifecycle.hpp/.cpp` | `HalLifecycle`: start-up load (patterns, palette, Display Enable) and shutdown() | SR-HAL-13, SR-HAL-07 |
 | `dev_mem_register_space.hpp/.cpp` | `DevMemRegisterSpace`: the `/dev/mem` mapping of the bridge window, the readiness check and its error codes | SR-HAL-01, 02, 07, 09, AS-01 |
+| `codec_config.hpp/.cpp`, `codec_sys.hpp`, `linux_codec_sys.cpp`, `codec_setup_main.cpp` | `configureCodec()` (#43): HPS_I2C_CONTROL, WM8731 set-up over `/dev/i2c-0`, Audio Enable; `codec_setup` board tool | SR-HAL-10, CON-12, SR-AUD-09 |
 | `bridge_sys.hpp`, `linux_bridge_sys.cpp` | `BridgeSys`: the Linux calls it makes (sysfs read, open, mmap, munmap, close), injectable for tests | SR-HAL-01, SR-HAL-09 |
 
 ## The register-access seam
@@ -119,5 +120,45 @@ file build/de1soc-release/sw/app/arcade
 ```
 
 Run as root on the board: `./arcade --backend=fpga`.
+
+## Codec configuration (#43)
+
+`configureCodec(sys, regs, paths)` (SR-HAL-10), in this order:
+
+1. **Find HPS_I2C_CONTROL** (§3.1.2.4: HPS_GPIO48, bit 19 of GPIO1): the gpiochip in `/sys/class/gpio` whose `label` is `ff709000.gpio`, line 19 (`base + 19`, 502 on the board). Found by label, never a fixed number or a `/dev/mem` address (#119: the SRS gives GPIO1 at 0xFF708000, the board shows 0xFF709000). No chip, or one with 19 lines or fewer: `kGpioChipNotFound`, nothing touched.
+2. **Hand the bus to the HPS:** export the line (already exported, `EBUSY`, is fine), `direction` = `out`, `value` = `1`. Failure: `kGpioSetupFailed`.
+3. **Configure the WM8731:** open `/dev/i2c-0`, `ioctl(I2C_SLAVE, 0x1A)`, then the seven writes of `kCodecSetup` (below), each one 2-byte `write()`. Stops at the first write without ACK: `kCodecNoAck` names the register. On the board a missing ACK fails in 4 ms, so nothing can hang.
+4. **Give the bus back:** close the device, `value` = `0`, unexport (best effort). The codec keeps its registers; the manual's §6.4 demo does the same.
+5. **Only if every write was acknowledged:** read Audio Control and write it back with bit 0 (audio enable) set, keeping the mute bit (#44). On any failure the bridge is not touched, so the Tone Generator stays silent (SR-AUD-09).
+
+Needs **root** (`/sys/class/gpio/export` is root-only, `/dev/i2c-0` is `root:i2c 0660`), so it runs before the program drops privileges (SC-01). `describeCodecFailure()` gives one console line per error code.
+
+### Codec register values (WM8731 datasheet PD Rev 3.4, Table 30, cited by SRS §3.1.2.4)
+
+| Order | Register | Data | Set because |
+|---|---|---|---|
+| 1 | R15 Reset | `0x000` | "Writing 00000000 to register resets device" |
+| 2 | R6 Power Down | `0x067` | DAC and line-out on; line-in, mic, ADC off (unused); OSCPD 1 (MCLK comes from the FPGA, SR-AUD-01; "MCLK input will function independently"); CLKOUTPD 1 (not wired) |
+| 3 | R4 Analogue Path | `0x012` | DACSEL 1, MUTEMIC 1, BYPASS 0 |
+| 4 | R5 Digital Path | `0x000` | DACMU 0 (muting is the Tone Generator's, SR-AUD-08), de-emphasis off |
+| 5 | R7 Interface Format | `0x002` | I2S, 16 bits (SR-AUD-03), slave (SR-AUD-02) |
+| 6 | R8 Sampling | `0x000` | normal mode, 256 fs, SR 0000: 48 kHz from 12.288 MHz (SR-AUD-01/02; datasheet sample-rate table, first row) |
+| 7 | R9 Active | `0x001` | ACTIVE set last, after interface and sampling ("Activating DSP and Digital Audio Interface") |
+
+Each write is `(reg << 1) | data bit 8`, then data bits 7..0 (§3.1.2.4: 7-bit address, 9-bit data).
+
+### Board facts (measured 19 Nov 2026, with the #39 device tree)
+
+`/dev/i2c-0` present (`root:i2c 0660`); `gpiochip483 base=483 ngpio=29 label=ff709000.gpio`; with GPIO 502 high the codec ACKs R15 = 0 (`i2cset -y 0 0x1a 0x1e 0x00`), with it low the same write fails in 4 ms. `i2cdetect -F 0`: plain I2C and SMBus byte writes supported.
+
+### Board check
+
+```bash
+cmake --preset de1soc-release -DCMAKE_EXE_LINKER_FLAGS=-static && cmake --build --preset de1soc-release
+```
+
+On the board, as root, after `load_fpga.sh arcade_top_1024.rbf`: `./codec_setup`. It checks the bridge first (exit 3, nothing touched, if not ready), then prints the GPIO number, every register written, and Audio Control before and after. Exit 0 configured, 4 codec configuration error.
+
+**Start-up call (not in #43):** `sw/app/` (Muhammad) calls `configureCodec(LinuxCodecSys, the opened DevMemRegisterSpace, kBoardCodecPaths)` once after the bridge is open and before dropping root, and prints `describeCodecFailure()` on an error.
 
 Rules: see [`AGENTS.md`](/AGENTS.md).
