@@ -22,14 +22,37 @@ jobs:
     # A label change cannot change the code, so only the checks job re-runs for it.
     if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # A safety net, not the target: a cold apt cache on a slow mirror has taken over 10 minutes
+    # (#123). With the cache restored the job is well under 5.
+    timeout-minutes: 20
+    env:
+      APT_PACKAGES: ninja-build clang-format clang-tidy gcovr libgtest-dev libsdl2-dev g++-arm-linux-gnueabihf
     steps:
       - uses: actions/checkout@v5
+      # #123: keep the downloaded .deb files between runs, so apt downloads only on a cache miss.
+      # The key changes with the package list; bump v1 to force a fresh download.
+      - name: Restore apt package cache
+        id: apt-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/apt-archives
+          key: apt-sw-ubuntu-24.04-v1-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: apt-sw-ubuntu-24.04-v1-
       - name: Install tools
         run: |
+          mkdir -p ~/apt-archives/partial
           sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends ninja-build clang-format clang-tidy \
-            gcovr libgtest-dev libsdl2-dev g++-arm-linux-gnueabihf
+          sudo apt-get install -y -q --no-install-recommends \
+            -o Dir::Cache::Archives="$HOME/apt-archives" $APT_PACKAGES
+          sudo rm -f ~/apt-archives/lock
+          sudo chown -R "$(id -u):$(id -g)" ~/apt-archives
+      # Saved straight after install, so a later failing step does not lose the download.
+      - name: Save apt package cache
+        if: steps.apt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/apt-archives
+          key: apt-sw-ubuntu-24.04-v1-${{ hashFiles('.github/workflows/ci.yml') }}
       - name: Build, test, coverage, cross build, format, clang-tidy, include check
         run: tools/ci_local.sh --sw-only
       - name: GoogleTest download fallback (as on a PC without libgtest-dev)
