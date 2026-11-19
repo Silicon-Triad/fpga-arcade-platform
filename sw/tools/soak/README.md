@@ -38,4 +38,4 @@ soak_driver [--minutes N] [--seed N] [--play N] [--device PATH] [--delay N] [--d
 
 Exit status: 0 plan finished (or `--dry-run`, `--help`), 1 device error or stopped, 2 bad arguments.
 
-Short PC check: `sudo ./build/pc-debug/sw/tools/soak/soak_driver --minutes 2 --play 15`, then start `./build/pc-debug/sw/app/arcade --backend=sdl` and keep its window focused (SDL gets the keys through the desktop, so they go to whatever window has focus).
+Short PC check: `sudo ./build/pc-debug/sw/tools/soak/soak_driver --minutes 3 --play 15` (two rounds: Snake, then Breakout), then start `./build/pc-debug/sw/app/arcade --backend=sdl` and keep its window focused (SDL gets the keys through the desktop, so they go to whatever window has focus).
