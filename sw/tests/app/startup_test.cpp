@@ -8,11 +8,13 @@
 #include <array>
 #include <chrono>
 #include <cstdio>
+#include <ctime>
 #include <functional>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "app/latency_probe.hpp"
 #include "app/options.hpp"
 #include "assets/game_tiles.hpp"
 #include "assets/text_tiles.hpp"
@@ -309,4 +311,42 @@ TEST(Startup, SR_INP_16_NoCheckMeansAKeyboardIsThere) {  // the PC: SDL always h
 }
 
 }  // namespace
+}  // namespace arcade
+
+namespace arcade {
+
+// PR-02 (#47): with a recorder, every tick's swap turns pending presses into latencies and the
+// summary is printed at exit; without one, nothing is printed.
+TEST(Startup, PR_02_LatencyRecorderIsToldAfterEachPresent) {
+    std::vector<std::string> calls;
+    LatencyRecorder recorder(nullptr);
+    timespec ts{};
+    ASSERT_EQ(clock_gettime(CLOCK_MONOTONIC, &ts), 0);
+    recorder.onPress(static_cast<std::uint64_t>(ts.tv_sec) * 1000000 +
+                     static_cast<std::uint64_t>(ts.tv_nsec) / 1000);
+    const BackendFactory inner = fakeFactory(calls, 3);
+    Log log;
+    Options options;
+    options.usbMs = 8;
+    static_cast<void>(runArcade(
+        options,
+        [&inner, &recorder](const Options& o) {
+            BackendStart start = inner(o);
+            start.latency = &recorder;
+            return start;
+        },
+        log.file()));
+    EXPECT_EQ(recorder.summary().count, 1u);
+    EXPECT_TRUE(recorder.summary().clockOk);
+    EXPECT_NE(log.text().find("latency: n=1"), std::string::npos) << log.text();
+    EXPECT_NE(log.text().find("PR-02 limit 67 ms"), std::string::npos) << log.text();
+}
+
+TEST(Startup, PR_02_NoLatencyOutputWhenOff) {
+    std::vector<std::string> calls;
+    Log log;
+    static_cast<void>(runArcade(Options{}, fakeFactory(calls, 3), log.file()));
+    EXPECT_EQ(log.text().find("latency"), std::string::npos) << log.text();
+}
+
 }  // namespace arcade

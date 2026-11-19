@@ -11,6 +11,10 @@
 #include "arcade/engine_api.hpp"
 
 namespace arcade {
+class LatencyRecorder;
+}
+
+namespace arcade {
 
 /// Message printed when the backend cannot start (SF-02, SR-HAL-09).
 constexpr std::string_view kHardwareNotReady = "graphics hardware not ready";
@@ -34,6 +38,8 @@ struct BackendStart {
     /// Ticks to keep the last frame after a confirmed shutdown, before release. For the PC only,
     /// where release closes the window; on the board the frame stays until power-off (SR-HAL-07).
     int finalFrameTicks = 0;
+    /// --latency (PR-02, #47): told the time after every present(); nullptr when off.
+    LatencyRecorder* latency = nullptr;
 };
 
 /// Starts the backend of `options` (SR-FW-05). Injected so tests use a fake backend.

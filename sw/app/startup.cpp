@@ -3,6 +3,7 @@
 #include <cinttypes>
 #include <optional>
 
+#include "app/latency_probe.hpp"
 #include "arcade/tables.hpp"
 #include "assets/game_tiles.hpp"
 #include "assets/palette.hpp"
@@ -90,17 +91,33 @@ int runArcade(const Options& options, const BackendFactory& factory, std::FILE* 
     // keyboard missing at start-up (SR-INP-16), so the backend is asked once.
     app.setKeyboardMissing(backend.keyboardPresent && !backend.keyboardPresent());
     loop.setScreen(&app);
+    // PR-02 (#47): called right after each present(), i.e. after the swap of the tick that read
+    // the pending presses. Does nothing without --latency.
+    LatencyRecorder* const latency = backend.latency;
+    const auto afterTick = [latency, &clock] {
+        if (latency != nullptr) {
+            latency->onSwap(clock.nowUs());
+        }
+    };
     for (int tick = 1; tick <= kSplashTicks && !stop(); ++tick) {
         app.boot().setProgress(tick, kSplashTicks);
         loop.runTick();
+        afterTick();
     }
     app.bootFinished();
     // SR-FW-14: signals and closing the window are seen here, between ticks, not in the handler.
-    loop.run([&app, &stop] { return app.state() == AppState::ShuttingDown || stop(); });
+    // The stop check runs before every tick, so just after the previous tick's present().
+    loop.run([&app, &stop, &afterTick] {
+        afterTick();
+        return app.state() == AppState::ShuttingDown || stop();
+    });
     const bool confirmed = app.state() == AppState::ShuttingDown;
 
     if (options.profile) {
         printProfile(loop.report(), log);  // before release: the report reads frameCount()
+    }
+    if (latency != nullptr) {
+        printLatencySummary(latency->summary(), std::uint64_t{options.usbMs} * 1000, log);
     }
     const auto savePending = [&scores, &fs, log] {
         if (scores.savePending(fs) != SaveStatus::Ok) {
