@@ -11,10 +11,8 @@
 #include "arcade/engine_api.hpp"
 
 namespace arcade {
-class LatencyRecorder;
-}
 
-namespace arcade {
+class LatencyRecorder;
 
 /// Message printed when the backend cannot start (SF-02, SR-HAL-09).
 constexpr std::string_view kHardwareNotReady = "graphics hardware not ready";

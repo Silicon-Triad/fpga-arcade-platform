@@ -327,7 +327,7 @@ TEST(Startup, PR_02_LatencyRecorderIsToldAfterEachPresent) {
     const BackendFactory inner = fakeFactory(calls, 3);
     Log log;
     Options options;
-    options.usbMs = 8;
+    options.usbUs = 8000;
     static_cast<void>(runArcade(
         options,
         [&inner, &recorder](const Options& o) {

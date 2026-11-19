@@ -78,6 +78,11 @@ void printLatencySummary(const LatencySummary& s, std::uint64_t usbUs, std::FILE
         (void)std::fprintf(log, "latency: clock check FAILED: no PR-02 verdict\n");
         return;
     }
+    if (s.dropped > 0) {
+        // max(b) would leave the dropped presses out (review of #127).
+        (void)std::fprintf(log, "latency: presses dropped: no PR-02 verdict\n");
+        return;
+    }
     if (s.count == 0) {
         (void)std::fprintf(log, "latency: no presses measured: no PR-02 verdict\n");
         return;
@@ -137,6 +142,8 @@ void LatencyEvdevSys::readDirChanges(int watchFd, DirChangeSink& sink) {
 bool setMonotonicClock(int fd) noexcept {
     // EVIOCSCLOCKID (include/uapi/linux/input.h, drivers/input/evdev.c evdev_set_clk_type()):
     // evdev timestamps default to CLOCK_REALTIME; this switches the device to CLOCK_MONOTONIC.
+    // The swap time it is compared with comes from arcade::MonotonicClock::nowUs()
+    // (sw/engine/tick_clock.cpp), which calls clock_gettime(CLOCK_MONOTONIC): same clock.
     int clk = CLOCK_MONOTONIC;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg): ioctl is variadic.
     return ::ioctl(fd, EVIOCSCLOCKID, &clk) == 0;

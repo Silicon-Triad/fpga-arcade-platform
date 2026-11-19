@@ -2,6 +2,7 @@
 #include <csignal>
 #include <cstdio>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -88,13 +89,18 @@ BackendStart startBackend(const arcade::Options& options) {
         static arcade::hal::SteadyClock clock;
         static arcade::LinuxEvdevSys evdev;
         // PR-02 (#47): with --latency the Input Manager reads through the recording wrapper.
-        static arcade::LatencyRecorder recorder(stderr);
-        static arcade::LatencyEvdevSys latencyEvdev(evdev, recorder, &arcade::setMonotonicClock);
-        static arcade::InputManager input(options.latency
-                                              ? static_cast<arcade::EvdevSys&>(latencyEvdev)
+        // Built only then, so a normal run allocates nothing for it (review of #127).
+        static std::optional<arcade::LatencyRecorder> recorder;
+        static std::optional<arcade::LatencyEvdevSys> latencyEvdev;
+        if (options.latency) {
+            recorder.emplace(stderr);
+            latencyEvdev.emplace(evdev, *recorder, &arcade::setMonotonicClock);
+        }
+        static arcade::InputManager input(latencyEvdev
+                                              ? static_cast<arcade::EvdevSys&>(*latencyEvdev)
                                               : static_cast<arcade::EvdevSys&>(evdev));
         start = arcade::startFpgaBackend(openBridge(), clock, input, keyBindings());
-        start.latency = options.latency ? &recorder : nullptr;
+        start.latency = recorder ? &*recorder : nullptr;
         return start;
     }
 #ifdef ARCADE_HAS_SDL
@@ -122,7 +128,7 @@ int main(int argc, char** argv) {
     const auto options = arcade::parseOptions(argc, argv, kDefaultBackend);
     if (!options) {
         (void)std::fprintf(
-            stderr, "usage: arcade [--backend=sdl|fpga] [--profile] [--latency --usb-ms=N]\n");
+            stderr, "usage: arcade [--backend=sdl|fpga] [--profile] [--latency --usb-us=N]\n");
         return kExitUsage;
     }
     // Before the backend starts: SDL then leaves these handlers in place.

@@ -92,7 +92,10 @@ int runArcade(const Options& options, const BackendFactory& factory, std::FILE* 
     app.setKeyboardMissing(backend.keyboardPresent && !backend.keyboardPresent());
     loop.setScreen(&app);
     // PR-02 (#47): called right after each present(), i.e. after the swap of the tick that read
-    // the pending presses. Does nothing without --latency.
+    // the pending presses. GameLoop::run() calls its stop check straight after runTick()
+    // returns, and runTick() ends with present(), which itself waits for the swap (SR-FW-02):
+    // there is no other sleep in between, so b holds no pacing delay (review of #127).
+    // Does nothing without --latency.
     LatencyRecorder* const latency = backend.latency;
     const auto afterTick = [latency, &clock] {
         if (latency != nullptr) {
@@ -117,7 +120,7 @@ int runArcade(const Options& options, const BackendFactory& factory, std::FILE* 
         printProfile(loop.report(), log);  // before release: the report reads frameCount()
     }
     if (latency != nullptr) {
-        printLatencySummary(latency->summary(), std::uint64_t{options.usbMs} * 1000, log);
+        printLatencySummary(latency->summary(), options.usbUs, log);
     }
     const auto savePending = [&scores, &fs, log] {
         if (scores.savePending(fs) != SaveStatus::Ok) {

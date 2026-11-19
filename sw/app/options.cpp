@@ -5,11 +5,11 @@
 namespace arcade {
 namespace {
 
-constexpr std::string_view kUsbMsPrefix = "--usb-ms=";
+constexpr std::string_view kUsbUsPrefix = "--usb-us=";
 
-// Decimal 1..kMaxUsbMs.
-bool parseMs(std::string_view text, std::uint32_t& out) noexcept {
-    if (text.empty() || text.size() > 3) {
+// Decimal kMinUsbUs..kMaxUsbUs.
+bool parseUs(std::string_view text, std::uint32_t& out) noexcept {
+    if (text.empty() || text.size() > 7) {
         return false;
     }
     std::uint32_t v = 0;
@@ -19,7 +19,7 @@ bool parseMs(std::string_view text, std::uint32_t& out) noexcept {
         }
         v = v * 10 + static_cast<std::uint32_t>(c - '0');
     }
-    if (v == 0 || v > kMaxUsbMs) {
+    if (v < kMinUsbUs || v > kMaxUsbUs) {
         return false;
     }
     out = v;
@@ -42,16 +42,16 @@ std::optional<Options> parseOptions(int argc, const char* const* argv,
             options.profile = true;
         } else if (arg == "--latency") {  // PR-02, #47
             options.latency = true;
-        } else if (arg.substr(0, kUsbMsPrefix.size()) == kUsbMsPrefix) {
-            if (!parseMs(arg.substr(kUsbMsPrefix.size()), options.usbMs)) {
+        } else if (arg.substr(0, kUsbUsPrefix.size()) == kUsbUsPrefix) {
+            if (!parseUs(arg.substr(kUsbUsPrefix.size()), options.usbUs)) {
                 return std::nullopt;
             }
         } else {
             return std::nullopt;
         }
     }
-    // PR-02 (#47): --latency needs evdev (the FPGA backend) and part a from --usb-ms.
-    if (options.latency && (options.backend != BackendKind::Fpga || options.usbMs == 0)) {
+    // PR-02 (#47): --latency needs evdev (the FPGA backend) and part a from --usb-us.
+    if (options.latency && (options.backend != BackendKind::Fpga || options.usbUs == 0)) {
         return std::nullopt;
     }
     return options;

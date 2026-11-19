@@ -210,6 +210,21 @@ TEST(LatencyProbe, PR_02_BoundAndVerdict) {
     EXPECT_NE(out.find("= 67.001 ms (PR-02 limit 67 ms): FAIL"), std::string::npos) << out;
 }
 
+// A dropped press is missing from max(b), so the run gives no verdict (review of #127).
+TEST(LatencyProbe, DroppedPressesMeanNoVerdict) {
+    LatencySummary s;
+    s.count = 10;
+    s.maxUs = 5000;
+    s.dropped = 1;
+    std::FILE* f = std::tmpfile();
+    ASSERT_NE(f, nullptr);
+    printLatencySummary(s, 8000, f);
+    const std::string out = readAll(f);
+    static_cast<void>(std::fclose(f));
+    EXPECT_NE(out.find("presses dropped: no PR-02 verdict"), std::string::npos) << out;
+    EXPECT_EQ(out.find("PASS"), std::string::npos) << out;
+}
+
 TEST(LatencyProbe, NoPressesMeansNoVerdict) {
     std::FILE* f = std::tmpfile();
     ASSERT_NE(f, nullptr);
@@ -235,19 +250,28 @@ std::optional<Options> parseArgs(const std::array<const char*, N>& args) {
 }
 }  // namespace
 
-TEST(LatencyOptions, LatencyNeedsUsbMsAndFpga) {
+TEST(LatencyOptions, LatencyNeedsUsbUsAndFpga) {
     const Options none{};
-    const auto ok = parseArgs(std::array<const char*, 3>{"arcade", "--latency", "--usb-ms=8"});
+    const auto ok = parseArgs(std::array<const char*, 3>{"arcade", "--latency", "--usb-us=8000"});
     EXPECT_TRUE(ok.value_or(none).latency);
-    EXPECT_EQ(ok.value_or(none).usbMs, 8u);
+    EXPECT_EQ(ok.value_or(none).usbUs, 8000u);
     EXPECT_FALSE(parseArgs(std::array<const char*, 2>{"arcade", "--latency"}));
     EXPECT_FALSE(parseArgs(
-        std::array<const char*, 4>{"arcade", "--backend=sdl", "--latency", "--usb-ms=8"}));
-    EXPECT_FALSE(parseArgs(std::array<const char*, 2>{"arcade", "--usb-ms=0"}));
-    EXPECT_FALSE(parseArgs(std::array<const char*, 2>{"arcade", "--usb-ms=256"}));
-    EXPECT_FALSE(parseArgs(std::array<const char*, 2>{"arcade", "--usb-ms=8x"}));
-    EXPECT_FALSE(parseArgs(std::array<const char*, 2>{"arcade", "--usb-ms="}));
+        std::array<const char*, 4>{"arcade", "--backend=sdl", "--latency", "--usb-us=8000"}));
+    EXPECT_FALSE(parseArgs(std::array<const char*, 2>{"arcade", "--usb-us=124"}));
+    EXPECT_FALSE(parseArgs(std::array<const char*, 2>{"arcade", "--usb-us=4096001"}));
+    EXPECT_FALSE(parseArgs(std::array<const char*, 2>{"arcade", "--usb-us=8x"}));
+    EXPECT_FALSE(parseArgs(std::array<const char*, 2>{"arcade", "--usb-us="}));
     EXPECT_FALSE(parseArgs(std::array<const char*, 1>{"arcade"}).value_or(none).latency);
+    // High speed, bInterval 1 (125 us) and 16 (4,096 ms): the limits are accepted.
+    EXPECT_EQ(parseArgs(std::array<const char*, 3>{"arcade", "--latency", "--usb-us=125"})
+                  .value_or(none)
+                  .usbUs,
+              125u);
+    EXPECT_EQ(parseArgs(std::array<const char*, 3>{"arcade", "--latency", "--usb-us=4096000"})
+                  .value_or(none)
+                  .usbUs,
+              4096000u);
 }
 
 }  // namespace arcade

@@ -20,12 +20,18 @@ Rules: see [`AGENTS.md`](/AGENTS.md).
 
 PR-02 (key press to the first frame showing its effect, at most 67 ms) is verified with a high-speed camera in the SRS; the team has none. It is split into: (a) USB polling, at most the keyboard's polling interval, read from `bInterval` in `lsusb -v` on the board; (b) kernel event time to the bank swap of the tick that read the press, **measured** here; (c) scan-out after the swap, at most one frame (FRAME_PERIOD_MS 16.67 ms, App. A; PR-05 by QuestaSim). Verdict: a + max(b) + one frame ≤ 67 ms.
 
-`arcade --backend=fpga --latency --usb-ms=N` (N = the polling interval in ms; both options are required together, FPGA backend only):
+`arcade --backend=fpga --latency --usb-us=N` (N = the keyboard's polling interval in microseconds, 125 to 4,096,000; both options are required together, FPGA backend only):
 
 - `main.cpp` gives the Input Manager a `LatencyEvdevSys` (`latency_probe.*`) wrapping `LinuxEvdevSys`. It switches each opened event device to CLOCK_MONOTONIC timestamps with `EVIOCSCLOCKID` (evdev defaults to CLOCK_REALTIME; the ioctl is defined in `include/uapi/linux/input.h` and handled by `evdev_set_clk_type()` in `drivers/input/evdev.c`, present since Linux 3.4), and copies the timestamp of every key press it reads. Events are passed on unchanged.
 - After each tick's `present()` (which returns once the swap is done), `runArcade()` reads CLOCK_MONOTONIC and turns the presses read in that tick into one b each. One line per press: `latency: press 7 b=12.345 ms`. At exit: `latency: n=… max(b)=… p99(b)=…` and the bound with `PASS`/`FAIL`.
 - Clock check: if `EVIOCSCLOCKID` fails, or a press is later than its swap or more than 1 s before it, the run prints `clock check FAILED` and gives no verdict.
-- Without `--latency` the wrapper is not used: no cost and no output.
+- Without `--latency` neither the wrapper nor the recorder is built: no cost and no output.
 - Not measured: a game that stores a key and acts on it at its own next step (Snake's step timer) shows the move later; that is game design, not input latency.
 
-Board procedure: `lsusb -v` and note the keyboard's interrupt endpoint `bInterval`; run `./arcade --backend=fpga --latency --usb-ms=N 2> latency.log`; press keys for about a minute in the menu and in Breakout; quit; copy the summary lines.
+Working out N (part a). `bInterval` is in different units at different USB speeds (USB 2.0 spec, 9.6.6), so check the speed first:
+
+1. `lsusb -t`: the keyboard's line ends in `12M` (full speed), `1.5M` (low speed) or `480M` (high speed).
+2. `lsusb -v`: the keyboard's interrupt IN endpoint `bInterval`.
+3. Low or full speed: N = bInterval × 1000 (for example bInterval 10 → `--usb-us=10000`). High speed: N = 2^(bInterval−1) × 125 (for example bInterval 4 → `--usb-us=1000`).
+
+Board procedure: run `./arcade --backend=fpga --latency --usb-us=N 2> latency.log`; press keys for about a minute in the menu and in Breakout; quit; copy the summary lines. If any press was dropped (more than 64 between two frames) or the clock check fails, the run prints no verdict.
