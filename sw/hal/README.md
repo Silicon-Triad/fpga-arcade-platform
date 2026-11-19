@@ -149,7 +149,7 @@ Rules: see [`AGENTS.md`](/AGENTS.md).
 
 ## `frame_rate` (#46): measuring the frame rate without a scope
 
-**Change of method (PR-01, SR-VGA-10).** The SRS verifies PR-01 by measuring VGA_VS with an oscilloscope or frequency counter. The team has neither. `frame_rate` instead counts the Frame Counter register (`kOffsetFrameCounter`, §3.1.4, +1 per frame) against `CLOCK_MONOTONIC` over a long interval. Over 600 s at 60 Hz (36,000 frames), one count of read uncertainty is about 0.003 %, far finer than the ±0.5 % of PR-01. The verification method stays Test; only the instrument changes. This needs team approval and an entry in `docs/srs-changes.md` (Muhammad).
+**Proposed change of method (PR-01, SR-VGA-10), not yet approved.** Until the team approves it (a `frozen-interface` issue with all three approvals) and it is recorded in `docs/srs-changes.md`, this tool is not the accepted way to verify PR-01; its output is supporting evidence only. The SRS verifies PR-01 by measuring VGA_VS with an oscilloscope or frequency counter. The team has neither. `frame_rate` instead counts the Frame Counter register (`kOffsetFrameCounter`, §3.1.4, +1 per frame) against `CLOCK_MONOTONIC` over a long interval. Over 600 s at 60 Hz (36,000 frames), one count of read uncertainty is about 0.003 %, far finer than the ±0.5 % of PR-01. The verification method would stay Test; only the instrument changes.
 
 What it does:
 
@@ -162,7 +162,7 @@ What it does:
 
 Procedure on the board (as root, arcade not running):
 
-1. `load_fpga.sh arcade_top_1024.rbf`, then `./rw 0x8050` reads `0xA2CADE01`.
+1. `load_fpga.sh arcade_top_1024.rbf`, then `./rw 0x8050` reads `0xA2CADE01`: the ID/Version register at offset `0x8050` (`kOffsetIdVersion`, §3.1.4, TBL-RegisterMap) holds HAL_ID_MAGIC `0xA2CADE01` (App. A, SR-HAL-09).
 2. `./frame_rate` (10 minutes). Copy the whole output into the board test results.
 3. Repeat with `arcade_top_640.rbf` and `./frame_rate --mode 640`.
 

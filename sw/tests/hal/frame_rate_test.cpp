@@ -213,3 +213,31 @@ TEST(FrameRate, OptionsRejectBadInput) {
         EXPECT_FALSE(err.empty());
     }
 }
+
+namespace {
+using namespace arcade::hal;
+using namespace arcade::hal::fps;
+}  // namespace
+
+// A sleep that returns early (for example after a signal) must not produce a sample: measure()
+// sleeps again and samples only once the interval has passed.
+TEST(FrameRate, EarlyWakeIsNotSampled) {
+    arcade::hal::test::MockRegisterSpace regs;
+    arcade::hal::test::FakeClock clock;
+    int sleeps = 0;
+    const SleepFn sleep = [&](std::chrono::nanoseconds d) {
+        ++sleeps;
+        clock.t += (sleeps == 1) ? d / 2 : d;  // the first sleep wakes halfway
+        regs.frameCounter = static_cast<std::uint32_t>(clock.t.count() * 60 / 1000000000);
+    };
+    Options o;
+    o.seconds = 20;
+    o.sample = 10;
+    std::vector<Sample> seen;
+    const Result r = measure(regs, clock, sleep, o, [&](const Sample& s) { seen.push_back(s); });
+    ASSERT_EQ(seen.size(), 2u);
+    EXPECT_EQ(seen[0].ns, 10000000000ull);  // not the 5 s early wake
+    EXPECT_EQ(seen[0].interval, 600u);
+    EXPECT_EQ(r.frames, 1200u);
+    EXPECT_EQ(sleeps, 3);
+}
