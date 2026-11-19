@@ -1,10 +1,15 @@
-// FPGA top level of the arcade on the DE1-SoC (CON-01, CON-03, CON-04, SR-VGA-01). Refs #33,
-// closes the PLL part of #25.
+// FPGA top level of the arcade on the DE1-SoC (CON-01, CON-03, CON-04, SR-VGA-01; audio: CON-12,
+// SR-AUD-01, #116). Refs #33, closes the PLL part of #25.
 //
 //   CLOCK_50 ──> pixel_pll ──> pix_clk ──┬─> arcade_soc (bridge_regs_0 + clock crossing)
 //                     │                  ├─> arcade_video (tilemap, renderer, VGA Controller)
 //                     │                  └─> VGA_CLK (DAC clock = pixel clock, §3.1.2.1)
 //                     └─ locked ──> reset synchronizer ──> pix_rst
+//
+//   CLOCK_50 ──> audio_pll ──> aud_clk ──┬─> AUD_XCK (codec MCLK, 12.288 MHz, SR-AUD-01)
+//                     │                  ├─> tone_generator (aud side) <── pix side from bridge_regs
+//                     │                  └─> i2s_tx ──> AUD_BCLK, AUD_DACLRCK, AUD_DACDAT (CON-12)
+//                     └─ locked ──> reset synchronizer ──> aud_rst                       (#116)
 //
 // Why this file is in hw/quartus/ and not hw/rtl/: it instantiates two Quartus-generated
 // modules (arcade_soc from hw/ip/arcade_soc.qsys, pixel_pll from the IP Catalog) that do not
@@ -26,6 +31,10 @@
 // connections are copied unchanged from the Terasic DE1-SoC GHRD (rev E, ghrd_top.v), the same
 // source as the HPS settings in #28.
 //   B5 No FPGA-side reset requests to the HPS (see u_soc).
+//   B6 (#116) Separate audio_pll, Integer-N, outclk_0 = 12.288135 MHz as reported by Quartus,
+//      within 12.288 MHz +/- 0.5 % (SR-AUD-01, App. A AUD_MCLK_HZ). aud_rst: same pattern as B4
+//      (audio PLL lock -> aud_clk, 2 flip-flops). pix_clk <-> aud_clk is asynchronous
+//      (set_clock_groups in arcade.sdc); the crossings are the synchronizers in tone_generator.sv.
 // verilog_lint: waive-start parameter-name-style
 module arcade_top #(
     // SR-VGA-11, App. A VIDEO_MODE: "XGA_1024x768" (default) or "VGA_640x480" (SR-VGA-10).
@@ -43,6 +52,12 @@ module arcade_top #(
     output logic       VGA_SYNC_N,
     output logic       VGA_HS,
     output logic       VGA_VS,
+
+    // Audio codec (§3.1.2.4, Manual Table 3-12); AUD_ADCLRCK/AUD_ADCDAT not used (SRS)
+    output logic AUD_XCK,
+    output logic AUD_BCLK,
+    output logic AUD_DACLRCK,
+    output logic AUD_DACDAT,
 
     // HPS (copied from the Terasic DE1-SoC GHRD rev E, ghrd_top.v; not in the SRS, see #28)
     inout  wire        HPS_CONV_USB_N,
@@ -154,7 +169,7 @@ module arcade_top #(
   logic [3:0] pat_wr_strb;
   logic vblank_start, fpga_ready, reset_tilemap, display_enable;
 
-  // "audio" conduit: the Tone Generator (#41, #42) connects here; unused until then.
+  // "audio" conduit: to the Tone Generator (#42) below.
   logic [15:0] tone_frequency, tone_duration;
   logic tone_start, audio_enable, audio_mute;
 
@@ -268,6 +283,60 @@ module arcade_top #(
       .hps_0_hps_io_hps_io_gpio_inst_GPIO53 (HPS_LED),
       .hps_0_hps_io_hps_io_gpio_inst_GPIO54 (HPS_KEY),
       .hps_0_hps_io_hps_io_gpio_inst_GPIO61 (HPS_GSENSOR_INT)
+  );
+
+  // -------------------------------------------------------------------------
+  // Audio clock and reset (B6, #116)
+  // -------------------------------------------------------------------------
+  logic aud_clk, aud_pll_locked;
+
+  audio_pll u_audio_pll (
+      .refclk  (CLOCK_50),
+      .rst     (1'b0),
+      .outclk_0(aud_clk),        // 12.288135 MHz (SR-AUD-01)
+      .locked  (aud_pll_locked)
+  );
+
+  assign AUD_XCK = aud_clk;  // codec master clock = aud_clk (SR-AUD-01, §3.1.2.4)
+
+  // R-4.2.5: domain audio PLL lock (async) -> aud_clk.
+  logic [1:0] aud_rst_sync_q;
+  logic aud_rst;
+  always_ff @(posedge aud_clk or negedge aud_pll_locked) begin
+    if (!aud_pll_locked) aud_rst_sync_q <= 2'b11;
+    else aud_rst_sync_q <= {aud_rst_sync_q[0], 1'b0};
+  end
+  assign aud_rst = aud_rst_sync_q[1];
+
+  // -------------------------------------------------------------------------
+  // Tone Generator (#42) and I2S transmitter (#41): CON-12, SR-AUD-01..09
+  // pix_clk -> aud_clk crossings are inside tone_generator (R-4.2.5).
+  // -------------------------------------------------------------------------
+  logic aud_sample_tick;
+  logic signed [15:0] aud_sample;
+
+  tone_generator u_tone (
+      .pix_clk       (pix_clk),
+      .pix_rst       (pix_rst),
+      .tone_frequency(tone_frequency),
+      .tone_duration (tone_duration),
+      .tone_start    (tone_start),
+      .audio_enable  (audio_enable),
+      .audio_mute    (audio_mute),
+      .aud_clk       (aud_clk),
+      .aud_rst       (aud_rst),
+      .sample_tick   (aud_sample_tick),
+      .sample        (aud_sample)
+  );
+
+  i2s_tx u_i2s (
+      .aud_clk    (aud_clk),
+      .aud_rst    (aud_rst),
+      .sample     (aud_sample),
+      .sample_tick(aud_sample_tick),
+      .aud_bclk   (AUD_BCLK),
+      .aud_daclrck(AUD_DACLRCK),
+      .aud_dacdat (AUD_DACDAT)
   );
 
   arcade_video #(
