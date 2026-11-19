@@ -1,0 +1,1 @@
+arcade_add_test(save_loop_test SOURCES save_loop_test.cpp LIBS arcade_save_loop)
