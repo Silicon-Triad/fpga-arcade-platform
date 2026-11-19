@@ -3,17 +3,22 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 #include "../backend_fpga/fake_evdev_sys.hpp"
 #include "../hal/mock_register_space.hpp"
 #include "app/options.hpp"
 #include "app/startup.hpp"
+#include "arcade/tables.hpp"
+#include "hal/tone_sequencer.hpp"
 
 namespace arcade {
 namespace {
 
+using hal::test::Access;
 using hal::test::FakeClock;
 using hal::test::MockRegisterSpace;
 using test::FakeEvdevSys;
@@ -90,6 +95,69 @@ TEST_F(FpgaStartTest, SR_FW_01_RunArcadeLoadsTilesAndReleasesTheBridgeOnce) {
     EXPECT_NE(regs.control, 0U);  // SR-HAL-13: Display Enable set, and never cleared
     EXPECT_EQ(regs.releaseCalls, 1);
     EXPECT_EQ(regs.accessesAfterRelease, 0);
+}
+
+/// The 32-bit writes in `log` to the registers `ref` wrote (the tone registers), in order.
+std::vector<Access> writesTo(const std::vector<Access>& log, const std::vector<Access>& ref) {
+    std::vector<Access> out;
+    for (const Access& a : log) {
+        for (const Access& r : ref) {
+            if (a.kind == Access::Kind::kWrite32 && a.offset == r.offset) {
+                out.push_back(a);
+                break;
+            }
+        }
+    }
+    return out;
+}
+
+void expectSameWrites(const std::vector<Access>& got, const std::vector<Access>& want) {
+    ASSERT_EQ(got.size(), want.size());
+    for (std::size_t i = 0; i < want.size(); ++i) {
+        EXPECT_EQ(got[i].offset, want[i].offset) << i;
+        EXPECT_EQ(got[i].value, want[i].value) << i;
+    }
+}
+
+// QA-01: this test may not include register_map.hpp, so it checks the wiring against a
+// reference hal::ToneSequencer on its own mock (its register details are tested in
+// sw/tests/hal/tone_sequencer_test.cpp).
+TEST_F(FpgaStartTest, SR_HAL_11_PlaySoundReachesTheSequencerAndPresentTicksIt) {
+    BackendStart start = startFpgaBackend(BridgeOpen{&regs, {}}, clock, input, bindings);
+    ASSERT_NE(start.api, nullptr);
+    ASSERT_NE(start.keepAlive, nullptr);  // the sound driver
+    MockRegisterSpace refRegs;
+    hal::ToneSequencer ref(refRegs);
+    ref.play(EffectId::Eat);
+    const std::vector<Access> firstNote = refRegs.log;
+    ASSERT_EQ(firstNote.size(), 2U);  // frequency, then duration
+
+    start.api->playSound(EffectId::Eat);
+    expectSameWrites(writesTo(regs.log, firstNote), firstNote);
+    // Each present() is one tick: the board's tone writes match the reference's, tick by tick.
+    for (int tick = 0; tick < 2 * TICK_RATE; ++tick) {
+        regs.log.clear();
+        refRegs.log.clear();
+        ASSERT_EQ(start.api->present(), ApiStatus::Ok);
+        ref.tick();
+        expectSameWrites(writesTo(regs.log, firstNote), refRegs.log);
+    }
+    EXPECT_FALSE(ref.playing());
+}
+
+TEST_F(FpgaStartTest, SR_HAL_12_SetMuteReachesTheAudioControlRegister) {
+    BackendStart start = startFpgaBackend(BridgeOpen{&regs, {}}, clock, input, bindings);
+    ASSERT_NE(start.api, nullptr);
+    for (const bool on : {true, false}) {
+        MockRegisterSpace refRegs;
+        refRegs.audioControl = regs.audioControl;
+        hal::ToneSequencer ref(refRegs);
+        ref.setMute(on);
+        regs.log.clear();
+        start.api->setMute(on);
+        expectSameWrites(regs.log, refRegs.log);
+        EXPECT_EQ(regs.audioControl, refRegs.audioControl);
+    }
 }
 
 }  // namespace
