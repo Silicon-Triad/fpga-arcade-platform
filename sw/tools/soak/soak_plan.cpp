@@ -14,8 +14,10 @@ constexpr std::uint64_t kMenuGapMs = 400;  // between menu moves
 constexpr std::uint64_t kSettleMs = 1500;  // after a screen change
 constexpr std::uint64_t kPauseEveryMs = 60000;
 constexpr std::uint64_t kPausedMs = 2000;
-constexpr std::uint64_t kServeEveryMs = 3000;  // Breakout end phase: Launch only
-constexpr std::uint64_t kEscHoldMs = 100;      // far below SHUTDOWN_HOLD (3 s, SR-UI-14)
+constexpr std::uint64_t kServeEveryMs = 3000;  // Breakout end phase: time between serves
+constexpr std::uint64_t kEscHoldMs = 100;
+constexpr std::uint64_t kEdgeHoldMs =
+    1500;  // Breakout end phase: paddle to an edge      // far below SHUTDOWN_HOLD (3 s, SR-UI-14)
 constexpr std::uint64_t kMsPerSecond = 1000;
 constexpr std::uint64_t kMsPerMinute = 60000;
 // Letters only, no M (Global Mute) and no P (Pause), so a key that lands on another screen
@@ -94,19 +96,24 @@ void buildRound(Builder& b, std::uint32_t round, std::uint32_t& selection, const
     } else {
         playBreakout(b, playEnd);
         const std::uint64_t endAt = b.t + std::uint64_t{opt.endSeconds} * kMsPerSecond;
-        while (b.t < endAt) {  // launch every ball, never move: lives run out (SR-GAM-13)
-            b.tap(KEY_SPACE, kTapMs, kServeEveryMs, "breakout end");
+        // Launch every ball, then run the paddle to one edge (alternating) so the ball, which
+        // leaves from the paddle, comes back where the paddle is not: lives run out (SR-GAM-13).
+        bool left = true;
+        while (b.t < endAt) {
+            b.tap(KEY_SPACE, kTapMs, 300, "breakout end");
+            b.tap(left ? KEY_LEFT : KEY_RIGHT, kEdgeHoldMs, kServeEveryMs, "breakout end");
+            left = !left;
         }
     }
-    if (initialsInRound(round)) {
-        // SR-UI-08, SR-UI-10: on Initials these are saved and HighScores opens.
-        for (const std::uint16_t key : kInitials) {
-            b.tap(key, kTapMs, 500, "initials");
-        }
-        b.tap(KEY_ENTER, kTapMs, 3000, "initials enter");
+    // Every round (review of #131): Initials has no Back, so a qualifying score (SR-UI-08) can
+    // only leave it with three letters and Enter (SR-UI-10); the entry is saved and High Scores
+    // opens. On GameOver the letters are unbound and Enter starts a new game.
+    for (const std::uint16_t key : kInitials) {
+        b.tap(key, kTapMs, 500, "initials");
     }
-    // Back: to the menu from Playing, Paused, GameOver, Initials or HighScores (SR-UI-07,
-    // SR-UI-09, SR-UI-12).
+    b.tap(KEY_ENTER, kTapMs, 3000, "initials enter");
+    // Back: to the menu from Playing, Paused, GameOver or HighScores (SR-UI-07, SR-UI-09,
+    // SR-UI-12).
     b.tap(KEY_ESC, kEscHoldMs, 2000, "back to menu");
 }
 

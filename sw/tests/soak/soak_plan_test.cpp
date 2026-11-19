@@ -110,24 +110,126 @@ TEST(SoakPlan, NeverHoldsEscAndNeverPressesMute) {
     }
 }
 
-TEST(SoakPlan, InitialsInSomeRoundsOfEachGame) {
-    PlanOptions o = shortPlan(60);
-    const std::uint32_t rounds = roundCount(o);
-    ASSERT_GE(rounds, 8u);
-    std::map<std::uint32_t, int> perGame;
-    for (std::uint32_t r = 0; r < rounds; ++r) {
-        if (initialsInRound(r)) {
-            ++perGame[gameOfRound(r)];
-        }
-    }
-    EXPECT_GE(perGame[0], 1);
-    EXPECT_GE(perGame[1], 1);
+// SR-UI-10: the Initials screen has no Back, so every round types three letters and Enter
+// before its Esc (review of #131).
+TEST(SoakPlan, InitialsInEveryRound) {
+    const PlanOptions o = shortPlan(60);
     const auto plan = makePlan(o);
     const auto enters = std::count_if(plan.begin(), plan.end(), [](const Step& s) {
         return s.value == 1 && noteIs(s, "initials enter");
     });
-    EXPECT_EQ(static_cast<std::uint32_t>(enters),
-              static_cast<std::uint32_t>(perGame[0] + perGame[1]));
+    EXPECT_EQ(static_cast<std::uint32_t>(enters), roundCount(o));
+}
+
+namespace {
+
+/// The screens a round can be on when its end keys start (section 3.1.1), and where they lead.
+enum class Screen : std::uint8_t { Menu, Playing, Paused, GameOver, Initials, HighScores };
+
+/// Applies one KeyDown to a model of the App screen flow, using the real TBL-KeyBinding
+/// lookup: Back leaves Playing, Paused, GameOver and HighScores for the menu (SR-UI-07,
+/// SR-UI-09, SR-UI-12); Pause toggles Playing and Paused (SR-UI-05, SR-UI-06); Select on
+/// GameOver starts a new game; on Initials, Char adds a letter (at most 3) and Select with three
+/// letters saves and opens HighScores (SR-UI-10). Initials has no Back.
+void press(const KeyBindings& kb, Screen& screen, int& letters, std::uint16_t key) {
+    const auto ctx = [&]() {
+        switch (screen) {
+            case Screen::Menu:
+                return InputContext::Menu;
+            case Screen::Playing:
+                return InputContext::Snake;
+            case Screen::Paused:
+                return InputContext::Paused;
+            case Screen::GameOver:
+                return InputContext::GameOver;
+            case Screen::Initials:
+                return InputContext::Initials;
+            case Screen::HighScores:
+                return InputContext::HighScores;
+        }
+        return InputContext::Global;
+    }();
+    const auto action = kb.lookup(ctx, key);
+    if (!action) {
+        return;
+    }
+    switch (screen) {
+        case Screen::Playing:
+            if (*action == Action::Back) {
+                screen = Screen::Menu;
+            }
+            if (*action == Action::Pause) {
+                screen = Screen::Paused;
+            }
+            break;
+        case Screen::Paused:
+            if (*action == Action::Back) {
+                screen = Screen::Menu;
+            }
+            if (*action == Action::Pause) {
+                screen = Screen::Playing;
+            }
+            break;
+        case Screen::GameOver:
+            if (*action == Action::Back) {
+                screen = Screen::Menu;
+            }
+            if (*action == Action::Select) {
+                screen = Screen::Playing;
+            }
+            break;
+        case Screen::Initials:
+            if (*action == Action::Char && letters < 3) {
+                ++letters;
+            }
+            if (*action == Action::Select && letters == 3) {
+                screen = Screen::HighScores;
+            }
+            break;
+        case Screen::HighScores:
+            if (*action == Action::Back) {
+                screen = Screen::Menu;
+            }
+            break;
+        case Screen::Menu:
+            break;
+    }
+}
+
+}  // namespace
+
+// Review of #131: from every screen a round can end on, including Initials with no letters
+// typed, the round's end keys (initials, Enter, Esc) bring the arcade back to the menu, in
+// every round of the plan.
+TEST(SoakPlan, QA_05_EveryRoundEndReturnsToTheMenu) {
+    const KeyBindings kb;
+    const auto plan = makePlan(shortPlan(60));
+    std::vector<std::vector<std::uint16_t>> ends(1);
+    for (const Step& s : plan) {
+        if (s.value != 1) {
+            continue;
+        }
+        if (noteIs(s, "initials") || noteIs(s, "back to menu")) {
+            ends.back().push_back(s.key);
+        }
+        if (noteIs(s, "back to menu")) {
+            ends.emplace_back();
+        }
+    }
+    ends.pop_back();  // empty after the last round
+    ASSERT_EQ(ends.size(), roundCount(shortPlan(60)));
+    for (std::size_t r = 0; r < ends.size(); ++r) {
+        for (const Screen start : {Screen::Playing, Screen::Paused, Screen::GameOver,
+                                   Screen::Initials, Screen::HighScores}) {
+            Screen screen = start;
+            int letters = 0;
+            for (const std::uint16_t key : ends[r]) {
+                press(kb, screen, letters, key);
+            }
+            EXPECT_EQ(screen, Screen::Menu)
+                << "round " << r << " from screen " << static_cast<int>(start);
+        }
+    }
 }
 
 TEST(SoakPlan, PlaysPauseAndLaunch) {
@@ -167,6 +269,7 @@ TEST(SoakPlan, TBL_KeyBinding_PlannedKeysMapToTheIntendedActions) {
         {"breakout play", InputContext::Breakout}, {"breakout launch", InputContext::Breakout},
         {"breakout end", InputContext::Breakout},  {"breakout pause", InputContext::Breakout},
         {"initials", InputContext::Initials},      {"back to menu", InputContext::Snake},
+        {"back to menu", InputContext::Breakout},  {"back to menu", InputContext::GameOver},
     };
     for (const Step& s : makePlan(shortPlan(30))) {
         if (s.value != 1) {
@@ -176,7 +279,6 @@ TEST(SoakPlan, TBL_KeyBinding_PlannedKeysMapToTheIntendedActions) {
             if (noteIs(s, w.note)) {
                 EXPECT_TRUE(kb.lookup(w.context, s.key).has_value())
                     << s.note << " " << keyName(s.key);
-                break;
             }
         }
     }

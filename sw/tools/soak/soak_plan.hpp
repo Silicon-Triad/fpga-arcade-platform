@@ -46,13 +46,13 @@ struct Step {
 constexpr std::uint32_t kMenuEntries = 3;
 /// Game of round `r`: Snake on even rounds, Breakout on odd ones (QA-05 "alternating").
 constexpr std::uint32_t gameOfRound(std::uint32_t r) { return r % 2; }
-/// Initials are typed in rounds 2, 3, 6, 7, ... so each game saves the file every other time.
-constexpr bool initialsInRound(std::uint32_t r) { return (r / 2) % 2 == 1; }
 
 /// Builds the whole plan. Rounds alternate Snake and Breakout until the next round would not
-/// fit in `minutes`. Each round: select the game from the menu, play, let the game end,
-/// sometimes type initials and Enter, then Esc back to the menu (see README for why every
-/// path returns to the menu). Every press is released before the next press.
+/// fit in `minutes`. Each round: select the game from the menu, play, let the game end, type
+/// initials and Enter, then Esc back to the menu. Initials are typed in every round because the
+/// Initials screen has no Back (TBL-KeyBinding): only three letters and Enter leave it
+/// (SR-UI-10). See README for why every screen a round can end on returns to the menu. Every
+/// press is released before the next press.
 std::vector<Step> makePlan(const PlanOptions& opt);
 
 /// Number of whole rounds makePlan() fits in `opt.minutes`.
