@@ -38,8 +38,14 @@ module tb_tone_generator;
 
   // Checks count aud_clk cycles, so only the ratio matters. pix_clk is faster than aud_clk, as on
   // the board, at an unrelated ratio (14 : 10); the toggle crossing works at any ratio.
+  // pix_clk runs only around register writes (pix_run): between writes nothing in the pix_clk
+  // domain changes, and stopping it keeps this 2.6 s simulation inside run.sh's time limit.
   always #7 aud_clk = ~aud_clk;
-  always #5 pix_clk = ~pix_clk;
+  bit pix_run = 1'b1;
+  always begin
+    wait (pix_run);
+    #5 pix_clk = ~pix_clk;
+  end
 
   int errors = 0;
   task automatic fail(input string what);
@@ -93,6 +99,7 @@ module tb_tone_generator;
   // Inputs change on the falling pix_clk edge, so the DUT's pix_clk flip-flops never race them.
   longint start_count;  // aud_count when tone_start was pulsed
   task automatic play(input int freq_hz, input int dur_ms);
+    pix_run = 1'b1;
     @(negedge pix_clk);
     tone_frequency = 16'(freq_hz);  // Tone Frequency write
     repeat (4) @(negedge pix_clk);
@@ -101,12 +108,17 @@ module tb_tone_generator;
     start_count = aud_count;
     @(negedge pix_clk);
     tone_start = 1'b0;
+    repeat (2) @(negedge pix_clk);
+    pix_run = 1'b0;
   endtask
 
   task automatic set_audio_control(input bit enable, input bit mute);
+    pix_run = 1'b1;
     @(negedge pix_clk);
     audio_enable = enable;
     audio_mute   = mute;
+    repeat (2) @(negedge pix_clk);
+    pix_run = 1'b0;
   endtask
 
   task automatic wait_aud(input longint n);
@@ -166,6 +178,14 @@ module tb_tone_generator;
     $display("SR-AUD-05 %4d ms: tone lasted %.3f ms", dur_ms, real'(clks) / real'(CLKS_PER_MS));
   endtask
 
+  // Watchdog: a design that hangs a wait still ends with FAIL and a reason, before run.sh's limit.
+  initial begin
+    wait_aud(3 * AUD_MCLK_HZ);
+    fail("watchdog: test did not finish within 3 s of simulated time");
+    $display("FAIL");
+    $finish;
+  end
+
   // Resets are released on rising edges, never on the falling edge the checker samples on.
   logic release_rst = 1'b0;
   always @(posedge pix_clk) if (release_rst) pix_rst <= 1'b0;
@@ -176,6 +196,7 @@ module tb_tone_generator;
     repeat (4) @(posedge aud_clk);
     release_rst = 1'b1;
     wait_aud(10);
+    pix_run = 1'b0;
 
     // SR-AUD-09: audio enable 0 (reset value), a tone plays but every sample is 0.
     n0 = nonzero_taken;
@@ -201,8 +222,10 @@ module tb_tone_generator;
     // Start it while the old tone is low, so the new tone's first (high) half shows the change.
     play(200, 2000);
     wait_aud(20 * CLKS_PER_MS);
+    n0 = aud_count;
     @(negedge aud_clk);
-    while (sample != -TONE_AMPLITUDE_MAX) @(negedge aud_clk);
+    while (sample != -TONE_AMPLITUDE_MAX && aud_count - n0 < 10 * CLKS_PER_MS) @(negedge aud_clk);
+    if (sample != -TONE_AMPLITUDE_MAX) fail("SR-AUD-06: old 200 Hz tone never went low");
     play(4000, 30);
     @(negedge aud_clk);
     while (sample != TONE_AMPLITUDE_MAX && aud_count - start_count < 4 * CLKS_PER_SAMPLE) begin
