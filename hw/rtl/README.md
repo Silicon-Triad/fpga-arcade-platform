@@ -32,12 +32,16 @@ The sound path is two modules on the 12.288 MHz codec master clock `aud_clk` (SR
 | Module | Does |
 |---|---|
 | `i2s_tx.sv` (#41) | Makes `AUD_BCLK` and `AUD_DACLRCK` by dividing `aud_clk`, and sends each sample on `AUD_DACDAT` in I²S format (SR-AUD-02, SR-AUD-03) |
-| `tone_generator.sv` (#42) | The square-wave tone (SR-AUD-04 to SR-AUD-09); not yet |
+| `tone_generator.sv` (#42) | Takes the tone registers from `bridge_regs` (on `pix_clk`) across to `aud_clk` and makes one square-wave tone at a time (SR-AUD-04 to SR-AUD-09, CON-13) |
 
 - **Format (SR-AUD-03):** matches the codec set-up in #43 (R7: I²S, 16 bits, slave, LRP = 0, BCLKINV = 0). DACLRCK low = left. In each channel the MSB comes one BCLK after the DACLRCK edge, then the other 15 bits, then zeros. Left and right carry the same sample.
 - **Rates (SR-AUD-02):** one frame is 256 `aud_clk` (12.288 MHz / 48 kHz). BCLK = `aud_clk` / 4 = 3.072 MHz, 64 BCLK per frame (32 per channel). The BCLK rate is a design choice: the SRS fixes only 48 kHz, 16 bits and I²S, and the codec in slave mode accepts it.
 - **Edges:** BCLK, DACLRCK and DACDAT are all registered on `aud_clk`; DACLRCK and DACDAT change only on BCLK falling edges, so they are stable at the rising edge, where the codec samples. No logic on clock nets.
 - **`sample_tick`:** a one-clock pulse per frame, on the last counter clock of the frame (2 `aud_clk` before the DACLRCK fall on the pin). `sample` is taken at the end of that clock and sent in the next frame. It is the 48 kHz time base for `tone_generator`.
 - **Reset:** `aud_rst`, synchronous, active high (R-4.2.6). All outputs 0; the first frame sends 0.
+- **Clock crossing (`tone_generator`, R-4.2.5):** `tone_start` flips `start_toggle_q` on `pix_clk`; it crosses through `start_meta_q` and `start_sync_q`, and its edge loads frequency and duration in the `aud_clk` domain. `audio_enable` and `audio_mute` cross through `enable_meta_q`/`enable_q` and `mute_meta_q`/`mute_q`. The `.sdc` (#116) makes `pix_clk` and `aud_clk` asynchronous.
+- **HAL dependency:** the capture is safe because the HAL writes Tone Frequency before Tone Duration (which pulses `tone_start`), then writes neither for at least a game tick (SR-HAL-11, #117). If that order changes, the capture has to change too.
+- **Tone (SR-AUD-04, SR-AUD-05):** a phase accumulator, stepped at each `sample_tick`, gains 2 × frequency per sample and flips the level each time it passes 48,000, so the average frequency is exact; each half-period is a whole number of samples. Duration counts 48 samples per ms. A new tone replaces the old one at once and starts on a high half-period (SR-AUD-06).
+- **Output (SR-AUD-07 to SR-AUD-09):** `sample` is only +8,192, −8,192 or 0 (`TONE_AMPLITUDE_MAX`, SF-05). It is 0 while muted, while audio enable is 0 (the reset value) and when no tone is playing. A frequency or duration outside the SRS ranges (100–4,000 Hz, 10–2,000 ms) plays nothing; the HAL never writes one (SR-HAL-11).
 
 Rules: see [`AGENTS.md`](/AGENTS.md).
