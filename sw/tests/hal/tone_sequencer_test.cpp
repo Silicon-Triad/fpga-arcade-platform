@@ -184,7 +184,7 @@ TEST(ToneSequencer, SR_HAL_10_SetAudioControlBitSetsEnableWithoutTouchingMute) {
     // The path #43 uses to set the audio-enable bit (SR-HAL-10).
     MockRegisterSpace regs;
     regs.audioControl = 1U << kBitAudioMute;
-    setAudioControlBit(regs, kBitAudioEnable, true);
+    setAudioControlBit(regs, AudioControlBit::kEnable, true);
     EXPECT_EQ(regs.audioControl, (1U << kBitAudioEnable) | (1U << kBitAudioMute));
 }
 

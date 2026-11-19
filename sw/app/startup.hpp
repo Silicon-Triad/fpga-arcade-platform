@@ -26,7 +26,9 @@ constexpr std::string_view kStepLoadTiles = "load tiles and palette";
 /// A started backend, or the step that failed (SF-02).
 struct BackendStart {
     /// Objects the backend uses that must outlive `api` (the FPGA sound driver, #44). Declared
-    /// before `api`, so it is destroyed after it; may be empty.
+    /// before `api`, so it is destroyed after it; may be empty. Type-erased (shared_ptr<void>
+    /// keeps the right deleter) so this header needs no backend or HAL types, and the SDL
+    /// backend leaves it empty.
     std::shared_ptr<void> keepAlive;
     std::unique_ptr<EngineApi> api;       ///< nullptr if the start failed.
     std::function<bool()> stopRequested;  ///< True when the program should end; may be empty.

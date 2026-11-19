@@ -4,15 +4,24 @@
 #include <cstdint>
 
 #include "arcade/types.hpp"
+#include "hal/register_map.hpp"
 #include "hal/register_space.hpp"
 
 namespace arcade::hal {
 
+/// The two defined bits of the Audio Control Register (§3.1.4), from register_map.hpp. Only
+/// these can be passed to setAudioControlBit(), so no other bit (reserved, or >= 32) is
+/// ever written.
+enum class AudioControlBit : std::uint8_t {
+    kEnable = kBitAudioEnable,  ///< Bit 0, audio enable: set by #43 after codec set-up (SR-HAL-10).
+    kMute = kBitAudioMute,      ///< Bit 1, mute: written by setMute() (SR-HAL-12).
+};
+
 /// Sets or clears one bit of the Audio Control Register by read-modify-write (§3.1.4: R/W),
 /// leaving every other bit as read. The single access path to Audio Control: setMute()
-/// (SR-HAL-12, bit 1) uses it, and #43 sets the audio-enable bit (SR-HAL-10, bit 0) with it.
+/// (SR-HAL-12) uses kMute, and #43 sets kEnable (SR-HAL-10) with it.
 /// One read32, then one write32. No call throws (R-4.1.5).
-void setAudioControlBit(RegisterSpace& regs, unsigned bit, bool on) noexcept;
+void setAudioControlBit(RegisterSpace& regs, AudioControlBit bit, bool on) noexcept;
 
 /// Sound sequencer of the HAL (SR-HAL-11, SR-HAL-12, TBL-SoundEffect). Plays the notes of one
 /// TBL-SoundEffect effect through the Tone Frequency and Tone Duration registers, one note per
@@ -39,7 +48,8 @@ class ToneSequencer {
     /// writes nothing in other ticks or after the last note.
     void tick() noexcept;
 
-    /// True while an effect has a note sounding or still to write. For tests.
+    /// True while an effect has a note sounding or still to write. For tests only; the driver
+    /// itself never needs it.
     bool playing() const noexcept { return ticksLeft_ > 0; }
 
   private:

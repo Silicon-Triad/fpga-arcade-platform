@@ -132,11 +132,15 @@ Run as root on the board: `./arcade --backend=fpga`.
 
 ### Audio Control: read-modify-write, one path for #43 and #44
 
-Audio Control holds bit 0, audio enable (set by #43 after codec set-up, SR-HAL-10), and bit 1, mute (SR-HAL-12). Every access goes through `setAudioControlBit(regs, bit, on)`: one `read32`, then one `write32` with only that bit changed and every other bit as read. `setMute()` calls it with `kBitAudioMute` only, so #44 never sets or clears the enable bit.
+Audio Control holds bit 0, audio enable (set by #43 after codec set-up, SR-HAL-10), and bit 1, mute (SR-HAL-12). Every access goes through `setAudioControlBit(regs, AudioControlBit, on)` (an enum of only `kEnable` = `kBitAudioEnable` and `kMute` = `kBitAudioMute`, so no other bit can be written): one `read32`, then one `write32` with only that bit changed and every other bit as read. `setMute()` calls it with `AudioControlBit::kMute` only, so #44 never sets or clears the enable bit.
 
 Why read-modify-write and not a shadow: §3.1.4 says Audio Control is R/W, and `bridge_regs.sv` reads back the stored register, so the hardware is the single copy of both bits. A shadow would have to be shared between `ToneSequencer` and #43's codec code and kept in step; with read-modify-write they need no shared object. (Control, by contrast, is written without a read, see "Lifecycle", because its bit 1 may not read back as written; Audio Control has no such bit.) The cost is one bridge read per mute toggle, which happens only on a key press.
 
-**For #43:** after the codec acknowledges, call `setAudioControlBit(regs, kBitAudioEnable, true)` on the same `RegisterSpace`. It leaves the mute bit as it is.
+**For #43:** after the codec acknowledges, call `setAudioControlBit(regs, AudioControlBit::kEnable, true)` on the same `RegisterSpace`. It leaves the mute bit as it is.
+
+**Layering.** `arcade_hal` links `arcade_api` PUBLIC for `EffectId` (`arcade/types.hpp`, included by `tone_sequencer.hpp`) and `kSoundEffectTable`/`msToTicks` (`arcade/tables.hpp`, in the .cpp only). `arcade_api` is an INTERFACE library with only an include directory: headers, constants and table data, no code from the API layer. PUBLIC is needed because the public header includes `arcade/types.hpp`.
+
+**Read-back assumption.** Read-modify-write relies on Audio Control reading back what was written (§3.1.4 R/W; `bridge_regs.sv` returns `audio_q`). A `tb_bridge_regs` check for that is a follow-up in Mujtaba's area.
 
 Tests: `ctest --preset pc-debug -R "ToneSequencer|FpgaStartTest" --output-on-failure`.
 
