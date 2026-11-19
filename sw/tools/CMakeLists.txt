@@ -1,5 +1,6 @@
 # Test tools (sw/tools/README.md).
 add_subdirectory(uinput)
+add_subdirectory(soak)
 
 # Manual SDL2 backend demo (issue #17, SR-FW-06). Not a test: run it and press keys.
 if(ARCADE_BACKEND_SDL)

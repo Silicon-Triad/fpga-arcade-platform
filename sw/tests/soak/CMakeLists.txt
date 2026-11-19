@@ -1,0 +1,1 @@
+arcade_add_test(soak_plan_test SOURCES soak_plan_test.cpp LIBS arcade_soak_plan arcade_input)
