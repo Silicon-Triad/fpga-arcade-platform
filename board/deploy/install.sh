@@ -130,6 +130,19 @@ udevadm control --reload-rules 2>/dev/null || true
 udevadm trigger --subsystem-match=input 2>/dev/null || true
 ls -l /dev/input/ || true
 
+step "uinput module (PR-06, QA-05, #70)"
+# The image's kernel has no uinput. build_uinput.sh (next to this script) builds it once against
+# the image's own kernel tree, installs it and lists it in /etc/modules; later runs only load it.
+# A failure here does not stop the install: the game does not need uinput, only the test tools.
+if modprobe uinput 2>/dev/null; then
+    grep -qx uinput /etc/modules || echo uinput >> /etc/modules
+elif [ -f "$SRC/build_uinput.sh" ]; then
+    bash "$SRC/build_uinput.sh" || echo "WARNING: uinput not built; see board/tests/uinput.md"
+else
+    echo "WARNING: no uinput module and no $SRC/build_uinput.sh; test tools need it (#70)"
+fi
+ls -l /dev/uinput 2>/dev/null || true
+
 step "checkpoint 2: network services (SC-02)"
 # Names are the usual Ubuntu packages for the ports seen on 19 Nov (21, 22, 631, 5353, 5901,
 # 6001). Only services that exist are touched; anything still listening is listed at the end.
@@ -197,6 +210,7 @@ step "done; reboot, then check:"
 echo "  ss -tuln                    (SC-02: nothing listed)"
 echo "  id arcade                   (SC-01: groups include input)"
 echo "  ls -l /dev/input/event0     (group input)"
+echo "  ls -l /dev/uinput           (#70: present after reboot)"
 echo "Listening now (before reboot):"
 ss -tuln 2>/dev/null || netstat -tuln 2>/dev/null || echo "(no ss or netstat)"
 if [ "$ASSUME_YES" = yes ]; then
