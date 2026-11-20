@@ -37,6 +37,7 @@ constexpr std::array<std::pair<std::string_view, Action>, kActionCount> kActions
     {"Char", Action::Char},
     {"Delete", Action::Delete},
     {"Mute", Action::Mute},
+    {"Scores", Action::Scores},  // #128
 }};
 
 /// SR-INP-11: KEY_A to KEY_Z in alphabet order. Linux key codes follow the keyboard layout,

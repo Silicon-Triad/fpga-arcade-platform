@@ -28,12 +28,12 @@ constexpr std::size_t kDefaultKeyBindingCount = 54;
 constexpr std::array<KeyBindingRow, kDefaultKeyBindingCount> kDefaultKeyBindings{{
     // Global: M -> Mute.
     {InputContext::Global, KEY_M, Action::Mute},
-    // Menu: Up -> Up, Down -> Down, Enter -> Select, H -> Select (SCORES),
+    // Menu: Up -> Up, Down -> Down, Enter -> Select, H -> Scores (#128),
     // Esc -> Back (held 3 s: shutdown, SR-UI-14).
     {InputContext::Menu, KEY_UP, Action::Up},
     {InputContext::Menu, KEY_DOWN, Action::Down},
     {InputContext::Menu, KEY_ENTER, Action::Select},
-    {InputContext::Menu, KEY_H, Action::Select},
+    {InputContext::Menu, KEY_H, Action::Scores},
     {InputContext::Menu, KEY_ESC, Action::Back},
     // Snake: arrows -> Up, Down, Left, Right; P -> Pause; Esc -> Back.
     {InputContext::Snake, KEY_UP, Action::Up},

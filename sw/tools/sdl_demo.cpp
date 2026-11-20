@@ -36,7 +36,7 @@ class DemoLookup : public arcade::KeyActionLookup {
 const char* actionName(Action a) {
     static constexpr std::array<const char*, arcade::kActionCount> kNames = {
         "Up",    "Down",   "Left", "Right",  "Select", "Back",
-        "Pause", "Launch", "Char", "Delete", "Mute"};
+        "Pause", "Launch", "Char", "Delete", "Mute",   "Scores"};
     return kNames[static_cast<std::size_t>(a)];
 }
 

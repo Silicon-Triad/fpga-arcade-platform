@@ -47,11 +47,12 @@ enum class Action : std::uint8_t {
     Char,  ///< A letter A-Z, Initials context only; the letter is in InputEvent::ch (SR-INP-11,
            ///< SR-UI-10).
     Delete,
-    Mute,  ///< Toggles sound through setMute() (SR-FW-11).
+    Mute,    ///< Toggles sound through setMute() (SR-FW-11).
+    Scores,  ///< Opens High Scores from the menu, whatever is selected (SR-UI-01, #128).
 };
 /// Number of Action values; size of the held-state array (TBL-KeyBinding).
-constexpr std::size_t kActionCount = 11;
-static_assert(static_cast<std::size_t>(Action::Mute) + 1 == kActionCount, "TBL-KeyBinding");
+constexpr std::size_t kActionCount = 12;
+static_assert(static_cast<std::size_t>(Action::Scores) + 1 == kActionCount, "TBL-KeyBinding");
 
 /// Sound effect played by playSound() (TBL-SoundEffect effect_id 0-6, SR-HAL-11).
 enum class EffectId : std::uint8_t {

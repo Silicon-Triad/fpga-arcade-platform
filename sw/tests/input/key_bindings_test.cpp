@@ -90,7 +90,7 @@ TEST(KeyBindings, SR_INP_09_Menu) {
                    {{KEY_UP, Action::Up},
                     {KEY_DOWN, Action::Down},
                     {KEY_ENTER, Action::Select},
-                    {KEY_H, Action::Select},
+                    {KEY_H, Action::Scores},  // #128
                     {KEY_ESC, Action::Back},
                     {KEY_M, Action::Mute}});  // Global fallback
 }
@@ -286,6 +286,14 @@ TEST(Keymap, SC_05_InitialsLetterCanBeRebound) {
     EXPECT_EQ(ev.type, InputEventType::KeyDown);
     EXPECT_EQ(ev.action, Action::Mute);
     EXPECT_EQ(ev.ch, 0);
+}
+
+TEST(Keymap, SC_05_ScoresNameIsAccepted) {  // #128
+    KeyBindings kb;
+    const auto r = load(kb, "Menu KEY_ESC Scores\n");
+    EXPECT_EQ(r.applied, 1U);
+    EXPECT_EQ(r.ignored, 0U);
+    EXPECT_EQ(kb.lookup(InputContext::Menu, KEY_ESC), Action::Scores);
 }
 
 TEST(Keymap, SC_05_EmptyOrCommentOnlyFileKeepsDefaults) {
