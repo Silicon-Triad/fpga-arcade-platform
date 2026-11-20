@@ -25,3 +25,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(frame_rate frame_rate_main.cpp)
     target_link_libraries(frame_rate PRIVATE arcade_frame_rate arcade_hal arcade_warnings)
 endif()
+
+# Codec set-up check on the board (#43, SR-HAL-10): runs configureCodec() and prints each step.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(codec_setup codec_setup_main.cpp)
+    target_link_libraries(codec_setup PRIVATE arcade_hal arcade_warnings)
+endif()
