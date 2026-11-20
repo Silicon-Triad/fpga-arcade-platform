@@ -1,7 +1,7 @@
 # `hw/quartus/`
 
 **Owner:** Mujtaba  
-**Issues:** #33 (closes the PLL part of #25)
+**Issues:** #33 (closes the PLL part of #25), #116 (audio)
 
 Quartus Prime Lite project (`.qpf`, `.qsf` pins, `.sdc`) and the board top level `arcade_top.sv`.
 Pin values only from the DE1-SoC manual tables cited in SRS §3.1.2.
@@ -14,7 +14,7 @@ Rules: see [`AGENTS.md`](/AGENTS.md).
 |---|---|
 | `arcade.qpf`, `arcade.qsf` | Project, device 5CSEMA5F31C6 (CON-01), file list, pins |
 | `arcade.sdc` | 50 MHz board clock (CON-03), PLL clocks, reset-synchronizer cut |
-| `arcade_top.sv` | PLL + Platform Designer system (`hw/ip/arcade_soc.qsys`) + `hw/rtl/arcade_video.sv` |
+| `arcade_top.sv` | PLLs + Platform Designer system (`hw/ip/arcade_soc.qsys`) + `hw/rtl/arcade_video.sv` + audio (`tone_generator`, `i2s_tx`) |
 
 `arcade_top.sv` is here and not in `hw/rtl/` because it instantiates Quartus-generated modules
 (`arcade_soc`, `pixel_pll`) that Verilator cannot build. Everything simulatable is in
@@ -43,6 +43,19 @@ Write the actual frequencies Quartus reports for both outputs into the PR. Commi
 source file(s) the IP Catalog writes next to `hw/ip/` (check `git status`; the `.qip`/`.ip`,
 the `.v` wrapper), not its generated subfolders, and add the `.qip` line in `arcade.qsf`
 (there is a commented placeholder).
+
+### 1b. Audio PLL (`audio_pll`, #116)
+
+Same IP and steps as `pixel_pll`, saved as `hw/ip/audio_pll`, language **Verilog**. Answer **No**
+when Quartus offers to add the `.qip` (the relative line is already in `arcade.qsf`).
+
+| Setting | Value | Source |
+|---|---|---|
+| PLL mode | Integer-N | |
+| Reference clock | 50.0 MHz | CON-03 |
+| Number of clocks | 1 | |
+| outclk0 | **12.288 MHz** requested; Quartus reports **12.288135 MHz** (must be 12.2266-12.3494 MHz) | SR-AUD-01, App. A AUD_MCLK_HZ |
+| Enable locked output | yes | B6 in `arcade_top.sv` |
 
 ### 2. Generate the Platform Designer system
 

@@ -1,13 +1,13 @@
-Fitter Status : Successful - Wed Nov  4 02:06:09 2026
+Fitter Status : Successful - Fri Nov 20 12:25:46 2026
 Quartus Prime Version : 25.1std.0 Build 1129 10/21/2025 SC Lite Edition
 Revision Name : arcade
 Top-level Entity Name : arcade_top
 Family : Cyclone V
 Device : 5CSEMA5F31C6
 Timing Models : Final
-Logic utilization (in ALMs) : 520 / 32,070 ( 2 % )
-Total registers : 996
-Total pins : 157 / 457 ( 34 % )
+Logic utilization (in ALMs) : 584 / 32,070 ( 2 % )
+Total registers : 1088
+Total pins : 161 / 457 ( 35 % )
 Total virtual pins : 0
 Total block memory bits : 263,376 / 4,065,280 ( 6 % )
 Total RAM Blocks : 37 / 397 ( 9 % )
@@ -16,5 +16,5 @@ Total HSSI RX PCSs : 0
 Total HSSI PMA RX Deserializers : 0
 Total HSSI TX PCSs : 0
 Total HSSI PMA TX Serializers : 0
-Total PLLs : 1 / 6 ( 17 % )
+Total PLLs : 2 / 6 ( 33 % )
 Total DLLs : 1 / 4 ( 25 % )

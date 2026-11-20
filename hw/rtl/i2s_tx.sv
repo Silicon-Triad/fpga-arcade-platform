@@ -61,8 +61,14 @@ module i2s_tx (
   end
 
   // SLOT_BITS documents the slot length; the counter widths above follow from it.
-  if (SLOT_BITS != 32) begin : g_bad_slot
-    $error("i2s_tx: frame_q bit fields assume 32 BCLK per channel slot");
-  end
+  // Elaboration check only: Quartus Prime Lite does not support $error here, so Quartus
+  // synthesis (which defines ALTERA_RESERVED_QIS) skips it; Verilator and QuestaSim run it.
+`ifndef ALTERA_RESERVED_QIS
+  generate
+    if (SLOT_BITS != 32) begin : g_bad_slot
+      $error("i2s_tx: frame_q bit fields assume 32 BCLK per channel slot");
+    end
+  endgenerate
+`endif
 
 endmodule
