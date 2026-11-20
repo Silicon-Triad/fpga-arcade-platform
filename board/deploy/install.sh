@@ -7,7 +7,7 @@
 #        ./install.sh --no-autostart     everything except the boot job (for testing)
 #        ./install.sh --remove-autostart turns the boot job off again
 #        ./install.sh --yes ...          answer yes at every checkpoint (no prompts)
-# SRC_DIR must hold: arcade (static build), arcade_top_1024.rbf, load_fpga.sh.
+# SRC_DIR must hold: arcade and codec_setup (static builds), arcade_top_1024.rbf, load_fpga.sh.
 # The script stops at checkpoints and asks before each step that is hard to undo.
 # It is safe to run again. Reboot afterwards, then check: ss -tuln (empty).
 
@@ -63,7 +63,7 @@ confirm() {
     esac
 }
 
-for f in arcade arcade_top_1024.rbf load_fpga.sh; do
+for f in arcade codec_setup arcade_top_1024.rbf load_fpga.sh; do
     [ -f "$SRC/$f" ] || { echo "missing $SRC/$f" >&2; exit 1; }
 done
 
@@ -72,7 +72,7 @@ echo "This installs the arcade on this card: files, user arcade, udev rule, high
 echo "directory, network services OFF (ssh too) and, unless --no-autostart, the boot job."
 echo "After it, the serial console is the only way in. Have a serial cable connected, and"
 echo "keep an untouched card (or an image of this one) for recovery."
-sha256sum "$SRC/arcade" "$SRC/arcade_top_1024.rbf" "$SRC/load_fpga.sh"
+sha256sum "$SRC/arcade" "$SRC/codec_setup" "$SRC/arcade_top_1024.rbf" "$SRC/load_fpga.sh"
 confirm "serial console connected and a recovery card kept; continue?"
 
 step "files to $PREFIX"
@@ -80,6 +80,7 @@ install -d -m 0755 "$PREFIX"
 install -m 0755 "$SRC/arcade" "$PREFIX/arcade"
 install -m 0644 "$SRC/arcade_top_1024.rbf" "$PREFIX/arcade_top_1024.rbf"
 install -m 0755 "$SRC/load_fpga.sh" "$PREFIX/load_fpga.sh"
+install -m 0755 "$SRC/codec_setup" "$PREFIX/codec_setup"
 # The start script the boot job runs; also usable by hand.
 cat > "$PREFIX/arcade-run.sh" <<'EOF'
 #!/bin/bash
@@ -91,6 +92,12 @@ cd /usr/local/share/arcade
 if ! ./load_fpga.sh ./arcade_top_1024.rbf; then
     echo "FPGA load failed; not starting arcade" >&2
     exit 1
+fi
+# Interim (#39): arcade does not configure the codec itself yet, so do it here after every
+# load (the load resets Audio Enable; output stays 0 until it is set, SR-AUD-09, SR-HAL-10).
+# Sound is a "should": a codec failure is logged and the game still starts.
+if ! ./codec_setup; then
+    echo "codec set-up failed; starting arcade without sound" >&2
 fi
 ./arcade --backend=fpga
 rc=$?
