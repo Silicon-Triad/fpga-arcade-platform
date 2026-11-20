@@ -65,3 +65,15 @@ The glossary entry "FPGA manager" gives `/sys/class/fpga_manager/fpga0/state` as
 - **Not a requirement change:** SR-HAL-09 is unchanged; only the glossary's example path differs from this kernel's.
 
 Status: recorded 12 Nov 2026 by the HAL C++ owner (Muhammad); review on PR #115.
+
+## GPIO1 base address for HPS_I2C_CONTROL: 0xFF709000, not 0xFF708000 (#119)
+
+`srs-huzaifa-rev3.md` §3.1.2.4, "Switching the bus to the HPS", says: "HPS_I2C_CONTROL is HPS_GPIO48, bit 19 of the GPIO1 controller, whose registers are at 0xFF708000". The address was copied from the DE1-SoC manual §6.2, which contradicts its own bit numbers and the board.
+
+- **Corrected value:** the GPIO1 controller's registers are at **0xFF709000**. HPS_GPIO48 is still bit 19 of GPIO1, and HPS_I2C_CONTROL is still HPS_GPIO48; only the base address changes.
+- **Why (manual):** HPS_GPIO48 is bit 19 of GPIO1 (§6.4) and HPS_GPIO53 (HPS_LED) is bit 24 of GPIO1 (§6.2), so GPIO1's first line is GPIO 29.
+- **Why (board):** the board's device tree has three GPIO controllers, `gpio@ff708000` (29 lines), `gpio@ff709000` (29 lines) and `gpio@ff70a000` (27 lines); lines 29 to 57 are the one at 0xFF709000. On 19 Nov 2026, with only `gpio@ff709000` enabled, Linux showed `gpiochip483 base=483 ngpio=29 label=ff709000.gpio`; driving GPIO 483 + 19 = 502 high gave the I2C bus to the HPS and the WM8731 acknowledged its writes, and with it low the same write failed (details on #43, #39 and PR #120).
+- **Effect on code:** none. The HAL (#43, PR #120) finds HPS_I2C_CONTROL by the gpiochip label `ff709000.gpio` and never uses the register address. A future `/dev/mem` implementation would use 0xFF709000.
+- **Requirement IDs:** SR-HAL-10 is unchanged; only the hardware fact in §3.1.2.4 is corrected.
+
+Status: approved by all three members on #119 (19 Nov 2026).
