@@ -24,7 +24,7 @@ static_assert(sizeof(TilePattern) == kTilePatternBytes && kTilePatternBytes == 3
               "TBL-TilePattern: 32 bytes per tile");
 static_assert(std::tuple_size_v<TileSet> == 256, "TBL-TilePattern: 256 tiles");
 static_assert(std::tuple_size_v<Palette> == 16, "TBL-Palette: 16 colours");
-static_assert(kActionCount == 11, "TBL-KeyBinding: 11 actions");
+static_assert(kActionCount == 12, "TBL-KeyBinding: 12 actions (#128)");
 static_assert(static_cast<int>(EffectId::Eat) == 0 && kEffectCount == 7,
               "TBL-SoundEffect: effect ids 0-6");
 static_assert(kInputContextCount == 9, "TBL-KeyBinding: 9 contexts");
