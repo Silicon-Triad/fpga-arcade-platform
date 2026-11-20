@@ -92,3 +92,15 @@ PR-02 (key press to the first displayed frame showing its effect, at most 67 ms)
 - **Requirement IDs:** PR-02 is unchanged; only its verification method changes. PR-05 is used as stated.
 
 Status: decided by the integration owner (Muhammad), 20 Nov 2026; recorded in PR #127.
+
+## Action::Scores: H on the main menu opens High Scores (#128)
+
+Board finding, 19 Nov 2026 (#40, UC-08 View High Scores): on the main menu H did what Enter does, so with SNAKE selected it started Snake. Section 3.1.1 screen 2 ("H high scores") and screen 8 ("H on the main menu, Enter on SCORES, or after initials entry") say H opens High Scores whatever is selected.
+
+- **App. A "Action events":** the list (Up, Down, Left, Right, Select, Back, Pause, Launch, Char, Delete, Mute) gains **Scores**, added last so no existing value moves (`kActionCount` 11 → 12).
+- **`srs-muhammad.md` Chapter 5, default bindings, Menu row:** "H → Select (SCORES)" is read as **"H → Scores"**. The row count is unchanged. `keymap.conf` accepts the name `Scores` (SC-05).
+- **Requirements concerned:** SR-UI-01, SR-INP-09, TBL-KeyBinding; section 3.1.1 screens 2 and 8.
+- **Rejected:** a key code in `InputEvent` so the menu tells H from Enter; it would let the engine handle raw keys, against QA-01.
+- **History:** the same bug was #80, closed on 1 Nov 2026 by PR #99, which implemented #12 (Initials and High Scores) and did not change the binding, so the bug stayed.
+
+Status: frozen-interface change; approvals by all three members on #128 and its PR.

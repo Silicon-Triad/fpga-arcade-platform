@@ -95,6 +95,28 @@ TEST_F(MenuTest, SR_UI_01_SelectOnScoresOpensHighScores) {
     EXPECT_EQ(api.contexts.back(), InputContext::HighScores);
 }
 
+// #128: H (Action::Scores) opens High Scores whatever is selected; Enter is unchanged (above).
+TEST_F(MenuTest, SR_UI_01_ScoresOnSnakeOpensHighScores) {
+    ASSERT_EQ(app.menu().entryName(app.menu().selection()), "SNAKE");
+    app.update(press(Action::Scores));
+    EXPECT_EQ(app.state(), AppState::HighScores);
+    EXPECT_EQ(api.contexts.back(), InputContext::HighScores);
+    EXPECT_EQ(app.playing().game(), nullptr);  // no game started
+}
+
+TEST_F(MenuTest, SR_UI_01_ScoresOnBreakoutOpensHighScores) {
+    app.update(press(Action::Down));
+    ASSERT_EQ(app.menu().entryName(app.menu().selection()), "BREAKOUT");
+    app.update(press(Action::Scores));
+    EXPECT_EQ(app.state(), AppState::HighScores);
+}
+
+TEST_F(MenuTest, SR_UI_01_ScoresOnScoresOpensHighScores) {
+    app.update(press(Action::Up));
+    app.update(press(Action::Scores));
+    EXPECT_EQ(app.state(), AppState::HighScores);
+}
+
 TEST_F(MenuTest, QA_02_ThirdGameNeedsOneClassAndOneRow) {
     app.update(press(Action::Down));
     app.update(press(Action::Down));

@@ -70,7 +70,10 @@ void MenuScreen::update(const InputFrame& input) noexcept {
             sound_.playSound(EffectId::MenuMove);     // SR-GAM-15
         } else if (event.action == Action::Select) {  // SR-UI-03
             request_ = selection_ < games_.size() ? Request::StartGame : Request::Scores;
-            backHoldTicks_ = 0;  // leaving the menu ends the hold
+            backHoldTicks_ = 0;                       // leaving the menu ends the hold
+        } else if (event.action == Action::Scores) {  // SR-UI-01: H opens scores from any entry
+            request_ = Request::Scores;
+            backHoldTicks_ = 0;
         }
     }
     if (request_ == Request::None) {
