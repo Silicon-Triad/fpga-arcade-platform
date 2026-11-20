@@ -18,6 +18,7 @@ Hardware Access Layer: bridge mapping, shadow tilemap, present(), audio register
 | `tone_sequencer.hpp/.cpp` | `ToneSequencer`: TBL-SoundEffect notes through Tone Frequency / Tone Duration, the mute bit; `setAudioControlBit()` | SR-HAL-11, SR-HAL-12 (path for SR-HAL-10) |
 | `codec_config.hpp/.cpp`, `codec_sys.hpp`, `linux_codec_sys.cpp`, `codec_setup_main.cpp` | `configureCodec()` (#43): HPS_I2C_CONTROL, WM8731 set-up over `/dev/i2c-0`, Audio Enable; `codec_setup` board tool | SR-HAL-10, CON-12, SR-AUD-09 |
 | `bridge_sys.hpp`, `linux_bridge_sys.cpp` | `BridgeSys`: the Linux calls it makes (sysfs read, open, mmap, munmap, close), injectable for tests | SR-HAL-01, SR-HAL-09 |
+| `frame_rate.hpp/.cpp`, `frame_rate_main.cpp` | `frame_rate` (#46): VGA frame rate from the Frame Counter against CLOCK_MONOTONIC, PR-01 verdict | PR-01, SR-VGA-10 |
 
 ## The register-access seam
 
@@ -185,3 +186,26 @@ On the board, as root, after `load_fpga.sh arcade_top_1024.rbf`: `./codec_setup`
 **Start-up call (not in #43):** `sw/app/` (Muhammad) calls `configureCodec(LinuxCodecSys, the opened DevMemRegisterSpace, kBoardCodecPaths)` once after the bridge is open and before dropping root, and prints `describeCodecFailure()` on an error.
 
 Rules: see [`AGENTS.md`](/AGENTS.md).
+
+## `frame_rate` (#46): measuring the frame rate without a scope
+
+**Proposed change of method (PR-01, SR-VGA-10), not yet approved.** Until the team approves it (a `frozen-interface` issue with all three approvals) and it is recorded in `docs/srs-changes.md`, this tool is not the accepted way to verify PR-01; its output is supporting evidence only. The SRS verifies PR-01 by measuring VGA_VS with an oscilloscope or frequency counter. The team has neither. `frame_rate` instead counts the Frame Counter register (`kOffsetFrameCounter`, §3.1.4, +1 per frame) against `CLOCK_MONOTONIC` over a long interval. Over 600 s at 60 Hz (36,000 frames), one count of read uncertainty is about 0.003 %, far finer than the ±0.5 % of PR-01. The verification method would stay Test; only the instrument changes.
+
+What it does:
+
+- `DevMemRegisterSpace::open()` (#34) first: FPGA manager, bridge enable, ID/Version and Status FPGA ready (SR-HAL-09). Nothing is read before that passes.
+- Reads the Frame Counter and the time at the start, then every `--sample` seconds (default 10) until `--seconds` (default 600) have passed, and prints one line per sample with the rate over that interval. An interval with no new frame is printed as `STALL` and fails the run.
+- The counter is 32-bit; frames are summed per interval with modulo-2^32 subtraction, so a wrap is handled.
+- Verdict: `PASS` when the measured rate is within 59.7 Hz to 60.3 Hz (PR-01) and nothing stalled.
+- **Analysis** line (not a measurement): the pixel clock implied by the measured rate × H_TOTAL × V_TOTAL, from App. A: 1344 × 806 (SR-VGA-02/03) against PIXEL_CLK_HZ 65 MHz ± 0.5 %, or 800 × 525 (SR-VGA-10) against BRINGUP_PIXEL_CLK_HZ 25.0–25.2 MHz with `--mode 640`.
+- Reads only the Frame Counter; writes no register. Exit 0 PASS, 1 FAIL, 2 bad arguments, 3 bridge not ready.
+
+Procedure on the board (as root, arcade not running):
+
+1. `load_fpga.sh arcade_top_1024.rbf`, then `./rw 0x8050` reads `0xA2CADE01`: the ID/Version register at offset `0x8050` (`kOffsetIdVersion`, §3.1.4, TBL-RegisterMap) holds HAL_ID_MAGIC `0xA2CADE01` (App. A, SR-HAL-09).
+2. `./frame_rate` (10 minutes). Copy the whole output into the board test results.
+3. Repeat with `arcade_top_640.rbf` and `./frame_rate --mode 640`.
+
+Build: `cmake --preset de1soc-release -DCMAKE_EXE_LINKER_FLAGS=-static && cmake --build --preset de1soc-release --target frame_rate`.
+
+Note: in 640×480 mode, a pixel clock at the low end of SR-VGA-10 (25.0 MHz) gives 25,000,000 / (800 × 525) = 59.52 Hz, below PR-01's 59.7 Hz. Only 25.07–25.2 MHz meets both, so a 640 FAIL may be a PLL choice rather than a bug.
