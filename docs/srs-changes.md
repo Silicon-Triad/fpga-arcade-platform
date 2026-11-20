@@ -77,3 +77,18 @@ Status: recorded 12 Nov 2026 by the HAL C++ owner (Muhammad); review on PR #115.
 - **Requirement IDs:** SR-HAL-10 is unchanged; only the hardware fact in §3.1.2.4 is corrected.
 
 Status: approved by all three members on #119 (19 Nov 2026).
+
+## PR-02 verification: software timing instead of a 240 frames/s camera (#47, PR #127)
+
+PR-02 (key press to the first displayed frame showing its effect, at most 67 ms) is verified in the SRS by Analysis (latency budget) and Test: "film the key and the screen with a 240 frames/s phone camera, 4.2 ms per frame; 20 presses; maximum ≤ 67 ms". The team has no camera faster than normal video, so the Test part is replaced by a software measurement on the board. The requirement and its 67 ms limit are unchanged.
+
+- **New method:** Analysis plus a software Test, using `arcade --backend=fpga --latency --usb-us=N` (`sw/app/latency_probe.*`, procedure in `sw/app/README.md`). The latency is split into three parts:
+  - **a, USB polling (Analysis):** at most the keyboard's polling interval, from `bInterval` in `lsusb -v` on the board, converted for the device speed shown by `lsusb -t` (low/full speed: bInterval × 1 ms; high speed: 2^(bInterval−1) × 125 µs, USB 2.0 spec 9.6.6).
+  - **b, kernel event time to the bank swap (Test, measured):** the evdev timestamp of each press (switched to CLOCK_MONOTONIC with `EVIOCSCLOCKID`) against CLOCK_MONOTONIC when `present()` of the tick that read the press returns, i.e. after the swap.
+  - **c, scan-out after the swap (Analysis):** at most one frame, FRAME_PERIOD_MS 16.67 ms (App. A), as PR-05 requires and its QuestaSim test verifies.
+- **Pass:** a + max(b) + 16.67 ms ≤ 67 ms, over at least 20 presses (the SRS's count). No verdict is given if the clock check fails or any press was dropped.
+- **Why it is at least as strict:** a camera at 240 frames/s resolves 4.2 ms per frame; b is timed to the microsecond, and a and c are taken at their worst case rather than measured.
+- **Not covered:** a game that stores a key and acts on it at its own next step (Snake's step timer) shows the move later; that is game design, not input latency, as in the camera method's "first frame showing its effect".
+- **Requirement IDs:** PR-02 is unchanged; only its verification method changes. PR-05 is used as stated.
+
+Status: decided by the integration owner (Muhammad), 20 Nov 2026; recorded in PR #127.
