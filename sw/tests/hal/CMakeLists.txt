@@ -5,3 +5,4 @@ arcade_add_test(hal_lifecycle_test SOURCES hal_lifecycle_test.cpp LIBS arcade_ha
 arcade_add_test(dev_mem_register_space_test SOURCES dev_mem_register_space_test.cpp LIBS arcade_hal)
 arcade_add_test(frame_rate_test SOURCES frame_rate_test.cpp LIBS arcade_frame_rate)
 arcade_add_test(tone_sequencer_test SOURCES tone_sequencer_test.cpp LIBS arcade_hal)
+arcade_add_test(codec_config_test SOURCES codec_config_test.cpp LIBS arcade_hal)
