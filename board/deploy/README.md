@@ -48,6 +48,18 @@ Reboot afterwards and check `ss -tuln` (empty), `id arcade` and `ls -l /dev/inpu
 **Known limits:**
 - `arcade` does not drop root yet (SC-01 needs a code change), so the boot job still runs it as root.
 - The VNC/X listeners (5901, 6001) are started by a script, not by a named service. If `ss -tuln` still lists them, find that script (the command is in `install.sh`) and disable it.
-- uinput (#70) needs a kernel module or rebuild, which is outside this script.
+- uinput (#70): see the next section.
+
+## `build_uinput.sh`: the uinput kernel module (#70)
+
+The image's kernel (3.18.0) has no uinput, which `input_throughput_test` (PR-06) and `soak_driver` (QA-05) need. The image ships the kernel tree it was built from (`/lib/modules/3.18.0/build` = `/usr/src/3.18.0`, same `.config` and `Module.symvers`), so the module is built **on the board** against it:
+
+```
+bash /media/fat_partition/build_uinput.sh
+```
+
+It copies `uinput.c` (plus `input-compat.h`, with the include pointed next to it), builds with `make -C /lib/modules/3.18.0/build M=... modules`, refuses to install unless `modinfo` shows vermagic `3.18.0 SMP mod_unload modversions ARMv7`, installs to `/lib/modules/3.18.0/kernel/drivers/input/misc/`, runs `depmod -a` and `modprobe uinput`, and adds `uinput` to `/etc/modules` so it loads at every boot. An installed module is not rebuilt. `install.sh` calls it (step "uinput module") when `build_uinput.sh` is next to it on the FAT partition.
+
+Board result (20 Nov 2026): `input_throughput_test` PASS, 1,800 of 1,800 KeyDown and KeyUp; `/dev/uinput` present after a reboot. See `board/tests/uinput.md`.
 
 Rules: see [`AGENTS.md`](/AGENTS.md).
