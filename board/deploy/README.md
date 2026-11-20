@@ -11,7 +11,7 @@ After a confirmed shutdown, `arcade` exits with status **3** (`kExitShutdownRequ
 
 ## `install.sh`: one-time board set-up (#39)
 
-Run once as root **on the serial console**, from a copy on the FAT partition. The partition must also hold `arcade` (static build), `arcade_top_1024.rbf` and `load_fpga.sh`:
+Run once as root **on the serial console**, from a copy on the FAT partition. The partition must also hold `arcade` and `codec_setup` (static builds), `arcade_top_1024.rbf` and `load_fpga.sh`:
 
 ```
 bash /media/fat_partition/install.sh
@@ -23,7 +23,7 @@ The script stops at checkpoints and waits for `y` before each step that is hard 
 
 | Checkpoint | Shows | Then |
 |---|---|---|
-| 1 | what will change, sha256 of the three files | copies them to `/usr/local/share/arcade/` (with `arcade-run.sh`); creates group `input` and user `arcade` (groups `input`, `i2c`, no login) (SC-01); creates `/var/lib/arcade/` owned by `arcade` (SR-FW-08); adds a udev rule giving group `input` `/dev/input/event*` |
+| 1 | what will change, sha256 of the four files | copies them to `/usr/local/share/arcade/` (with `arcade-run.sh`); creates group `input` and user `arcade` (groups `input`, `i2c`, no login) (SC-01); creates `/var/lib/arcade/` owned by `arcade` (SR-FW-08); adds a udev rule giving group `input` `/dev/input/event*` |
 | 2 | `ss -tuln` and the services found | disables them (SC-02) |
 | 3 | `initctl version` must say Upstart, and **a test load** of the bitstream with its exit status | installs the Upstart job `/etc/init/arcade.conf` (AS-02, SR-FW-13) |
 | end | `ss -tuln` | asks whether to reboot |
@@ -31,6 +31,7 @@ The script stops at checkpoints and waits for `y` before each step that is hard 
 The boot job runs `arcade-run.sh`, which:
 - loads the bitstream;
 - **stops without starting `arcade` if the load fails** (a fabric that is not our design could hang the HPS on a bridge access);
+- runs `codec_setup` (interim, until `arcade` configures the codec itself): the load resets Audio Enable, so without it there is no sound (SR-AUD-09, SR-HAL-10). If it fails, the game starts without sound;
 - otherwise runs `arcade --backend=fpga`;
 - runs `poweroff` only on exit status 3.
 
