@@ -65,3 +65,42 @@ The glossary entry "FPGA manager" gives `/sys/class/fpga_manager/fpga0/state` as
 - **Not a requirement change:** SR-HAL-09 is unchanged; only the glossary's example path differs from this kernel's.
 
 Status: recorded 12 Nov 2026 by the HAL C++ owner (Muhammad); review on PR #115.
+
+## GPIO1 base address for HPS_I2C_CONTROL: 0xFF709000, not 0xFF708000 (#119)
+
+`srs-huzaifa-rev3.md` §3.1.2.4, "Switching the bus to the HPS", says: "HPS_I2C_CONTROL is HPS_GPIO48, bit 19 of the GPIO1 controller, whose registers are at 0xFF708000". The address was copied from the DE1-SoC manual §6.2, which contradicts its own bit numbers and the board.
+
+- **Corrected value:** the GPIO1 controller's registers are at **0xFF709000**. HPS_GPIO48 is still bit 19 of GPIO1, and HPS_I2C_CONTROL is still HPS_GPIO48; only the base address changes.
+- **Why (manual):** HPS_GPIO48 is bit 19 of GPIO1 (§6.4) and HPS_GPIO53 (HPS_LED) is bit 24 of GPIO1 (§6.2), so GPIO1's first line is GPIO 29.
+- **Why (board):** the board's device tree has three GPIO controllers, `gpio@ff708000` (29 lines), `gpio@ff709000` (29 lines) and `gpio@ff70a000` (27 lines); lines 29 to 57 are the one at 0xFF709000. On 19 Nov 2026, with only `gpio@ff709000` enabled, Linux showed `gpiochip483 base=483 ngpio=29 label=ff709000.gpio`; driving GPIO 483 + 19 = 502 high gave the I2C bus to the HPS and the WM8731 acknowledged its writes, and with it low the same write failed (details on #43, #39 and PR #120).
+- **Effect on code:** none. The HAL (#43, PR #120) finds HPS_I2C_CONTROL by the gpiochip label `ff709000.gpio` and never uses the register address. A future `/dev/mem` implementation would use 0xFF709000.
+- **Requirement IDs:** SR-HAL-10 is unchanged; only the hardware fact in §3.1.2.4 is corrected.
+
+Status: approved by all three members on #119 (19 Nov 2026).
+
+## PR-02 verification: software timing instead of a 240 frames/s camera (#47, PR #127)
+
+PR-02 (key press to the first displayed frame showing its effect, at most 67 ms) is verified in the SRS by Analysis (latency budget) and Test: "film the key and the screen with a 240 frames/s phone camera, 4.2 ms per frame; 20 presses; maximum ≤ 67 ms". The team has no camera faster than normal video, so the Test part is replaced by a software measurement on the board. The requirement and its 67 ms limit are unchanged.
+
+- **New method:** Analysis plus a software Test, using `arcade --backend=fpga --latency --usb-us=N` (`sw/app/latency_probe.*`, procedure in `sw/app/README.md`). The latency is split into three parts:
+  - **a, USB polling (Analysis):** at most the keyboard's polling interval, from `bInterval` in `lsusb -v` on the board, converted for the device speed shown by `lsusb -t` (low/full speed: bInterval × 1 ms; high speed: 2^(bInterval−1) × 125 µs, USB 2.0 spec 9.6.6).
+  - **b, kernel event time to the bank swap (Test, measured):** the evdev timestamp of each press (switched to CLOCK_MONOTONIC with `EVIOCSCLOCKID`) against CLOCK_MONOTONIC when `present()` of the tick that read the press returns, i.e. after the swap.
+  - **c, scan-out after the swap (Analysis):** at most one frame, FRAME_PERIOD_MS 16.67 ms (App. A), as PR-05 requires and its QuestaSim test verifies.
+- **Pass:** a + max(b) + 16.67 ms ≤ 67 ms, over at least 20 presses (the SRS's count). No verdict is given if the clock check fails or any press was dropped.
+- **Why it is at least as strict:** a camera at 240 frames/s resolves 4.2 ms per frame; b is timed to the microsecond, and a and c are taken at their worst case rather than measured.
+- **Not covered:** a game that stores a key and acts on it at its own next step (Snake's step timer) shows the move later; that is game design, not input latency, as in the camera method's "first frame showing its effect".
+- **Requirement IDs:** PR-02 is unchanged; only its verification method changes. PR-05 is used as stated.
+
+Status: decided by the integration owner (Muhammad), 20 Nov 2026; recorded in PR #127.
+
+## Action::Scores: H on the main menu opens High Scores (#128)
+
+Board finding, 19 Nov 2026 (#40, UC-08 View High Scores): on the main menu H did what Enter does, so with SNAKE selected it started Snake. Section 3.1.1 screen 2 ("H high scores") and screen 8 ("H on the main menu, Enter on SCORES, or after initials entry") say H opens High Scores whatever is selected.
+
+- **App. A "Action events":** the list (Up, Down, Left, Right, Select, Back, Pause, Launch, Char, Delete, Mute) gains **Scores**, added last so no existing value moves (`kActionCount` 11 → 12).
+- **`srs-muhammad.md` Chapter 5, default bindings, Menu row:** "H → Select (SCORES)" is read as **"H → Scores"**. The row count is unchanged. `keymap.conf` accepts the name `Scores` (SC-05).
+- **Requirements concerned:** SR-UI-01, SR-INP-09, TBL-KeyBinding; section 3.1.1 screens 2 and 8.
+- **Rejected:** a key code in `InputEvent` so the menu tells H from Enter; it would let the engine handle raw keys, against QA-01.
+- **History:** the same bug was #80, closed on 1 Nov 2026 by PR #99, which implemented #12 (Initials and High Scores) and did not change the binding, so the bug stayed.
+
+Status: frozen-interface change; approvals by all three members on #128 and its PR.

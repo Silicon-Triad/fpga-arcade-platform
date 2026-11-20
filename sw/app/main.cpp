@@ -2,12 +2,14 @@
 #include <csignal>
 #include <cstdio>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 
 #include "app/bridge_open.hpp"
 #include "app/fpga_start.hpp"
+#include "app/latency_probe.hpp"
 #include "app/options.hpp"
 #include "app/startup.hpp"
 #include "hal/tilemap_hal.hpp"
@@ -86,8 +88,20 @@ BackendStart startBackend(const arcade::Options& options) {
         // Static: the backend keeps references to these until the program ends.
         static arcade::hal::SteadyClock clock;
         static arcade::LinuxEvdevSys evdev;
-        static arcade::InputManager input(evdev);
-        return arcade::startFpgaBackend(openBridge(), clock, input, keyBindings());
+        // PR-02 (#47): with --latency the Input Manager reads through the recording wrapper.
+        // Built only then, so a normal run allocates nothing for it (review of #127).
+        static std::optional<arcade::LatencyRecorder> recorder;
+        static std::optional<arcade::LatencyEvdevSys> latencyEvdev;
+        if (options.latency) {
+            recorder.emplace(stderr);
+            latencyEvdev.emplace(evdev, *recorder, &arcade::setMonotonicClock);
+        }
+        static arcade::InputManager input(latencyEvdev
+                                              ? static_cast<arcade::EvdevSys&>(*latencyEvdev)
+                                              : static_cast<arcade::EvdevSys&>(evdev));
+        start = arcade::startFpgaBackend(openBridge(), clock, input, keyBindings());
+        start.latency = recorder ? &*recorder : nullptr;
+        return start;
     }
 #ifdef ARCADE_HAS_SDL
     // Static: the backend keeps references to `lookup` and `textLayout` until the program ends.
@@ -113,7 +127,8 @@ BackendStart startBackend(const arcade::Options& options) {
 int main(int argc, char** argv) {
     const auto options = arcade::parseOptions(argc, argv, kDefaultBackend);
     if (!options) {
-        (void)std::fprintf(stderr, "usage: arcade [--backend=sdl|fpga] [--profile]\n");
+        (void)std::fprintf(
+            stderr, "usage: arcade [--backend=sdl|fpga] [--profile] [--latency --usb-us=N]\n");
         return kExitUsage;
     }
     // Before the backend starts: SDL then leaves these handlers in place.
